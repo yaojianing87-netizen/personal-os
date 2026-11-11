@@ -10,8 +10,10 @@ const root = document.documentElement;
 const toast = document.querySelector('#toast');
 let state = { ...defaults, ...loadAppearance() };
 let ideas = loadIdeas();
-let calendarNotes = loadCalendarNotes();
-let selectedCalendarDate = '2026-11-11';
+let calendarEntries = loadCalendarEntries();
+let selectedCalendarDate = toDateKey(new Date());
+let calendarView = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
+let editingCalendarEntryId = null;
 
 function loadAppearance() {
   try {
@@ -22,49 +24,92 @@ function loadAppearance() {
   }
 }
 
-function loadCalendarNotes() {
+function toDateKey(date) {
+  return [date.getFullYear(), String(date.getMonth() + 1).padStart(2, '0'), String(date.getDate()).padStart(2, '0')].join('-');
+}
+
+function dateFromKey(dateKey) {
+  const [year, month, day] = dateKey.split('-').map(Number);
+  return new Date(year, month - 1, day, 12);
+}
+
+function newId() {
+  return typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : String(Date.now()) + Math.random();
+}
+
+function loadCalendarEntries() {
   try {
     const saved = JSON.parse(localStorage.getItem('atelier-calendar-notes') || '{}');
-    return saved && typeof saved === 'object' && !Array.isArray(saved) ? saved : {};
+    if (!saved || typeof saved !== 'object' || Array.isArray(saved)) return {};
+    return Object.fromEntries(Object.entries(saved).map(([date, value]) => {
+      if (Array.isArray(value)) {
+        return [date, value.filter(entry => entry && typeof entry === 'object' && (typeof entry.title === 'string' || typeof entry.note === 'string'))
+          .map(entry => ({ id: entry.id || newId(), title: entry.title || '', time: entry.time || '', note: entry.note || '' }))];
+      }
+      if (typeof value === 'string') {
+        return [date, [{ id: newId(), title: '备注', time: '', note: value }]];
+      }
+      return [date, []];
+    }).filter(([, entries]) => entries.length));
   } catch {
     return {};
   }
 }
 
-function saveCalendarNotes() {
-  localStorage.setItem('atelier-calendar-notes', JSON.stringify(calendarNotes));
+function saveCalendarEntries() {
+  localStorage.setItem('atelier-calendar-notes', JSON.stringify(calendarEntries));
 }
 
 function formatCalendarDate(dateString) {
   return new Intl.DateTimeFormat('zh-CN', { month: 'long', day: 'numeric', weekday: 'short' })
-    .format(new Date(dateString + 'T12:00:00'));
+    .format(dateFromKey(dateString));
+}
+
+function formatCalendarMonth(date) {
+  return new Intl.DateTimeFormat('zh-CN', { year: 'numeric', month: 'long' }).format(date);
 }
 
 function renderCalendar() {
   const grid = document.querySelector('#calendarGrid');
   if (!grid) return;
   const weekdayLabels = ['一', '二', '三', '四', '五', '六', '日'];
-  const firstDayOffset = 6;
-  const daysInMonth = 30;
+  const year = calendarView.getFullYear();
+  const month = calendarView.getMonth();
+  const firstDayOffset = (new Date(year, month, 1).getDay() + 6) % 7;
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  document.querySelector('#calendarTitle').textContent = formatCalendarMonth(calendarView);
   const cells = weekdayLabels.map(day => '<span>' + day + '</span>');
   for (let blank = 0; blank < firstDayOffset; blank += 1) cells.push('<span class="calendar-blank" aria-hidden="true"></span>');
   for (let day = 1; day <= daysInMonth; day += 1) {
-    const date = '2026-11-' + String(day).padStart(2, '0');
-    const note = calendarNotes[date];
-    cells.push('<button class="calendar-day ' + (date === '2026-11-11' ? 'today ' : '') + (note ? 'has-note' : '') + '" data-calendar-date="' + date + '" aria-label="' + formatCalendarDate(date) + (note ? '，已有备注' : '，添加备注') + '"><b>' + day + '</b>' + (note ? '<small>' + escapeHtml(note).replace(/\n/g, ' ') + '</small>' : '<i>＋</i>') + '</button>');
+    const date = toDateKey(new Date(year, month, day));
+    const entries = calendarEntries[date] || [];
+    const isToday = date === toDateKey(new Date());
+    const entryButtons = entries.slice(0, 3).map(entry => '<button class="calendar-entry-chip" type="button" data-calendar-date="' + date + '" data-calendar-entry-id="' + entry.id + '" aria-label="编辑：' + escapeHtml(entry.title || entry.note) + '">' + (entry.time ? '<time>' + escapeHtml(entry.time) + '</time>' : '') + escapeHtml(entry.title || entry.note) + '</button>').join('');
+    const more = entries.length > 3 ? '<small class="calendar-more">还有 ' + (entries.length - 3) + ' 项</small>' : '';
+    cells.push('<div class="calendar-day ' + (isToday ? 'today ' : '') + (entries.length ? 'has-note' : '') + '"><button class="calendar-date-button" type="button" data-calendar-date="' + date + '" aria-label="' + formatCalendarDate(date) + (entries.length ? '，已有 ' + entries.length + ' 项日程' : '，新建日程') + '"><b>' + day + '</b><i>＋</i></button><div class="calendar-entry-list">' + entryButtons + more + '</div></div>');
   }
   grid.innerHTML = cells.join('');
 }
 
-function openCalendarNote(date) {
+function changeCalendarMonth(delta) {
+  calendarView = new Date(calendarView.getFullYear(), calendarView.getMonth() + delta, 1);
+  renderCalendar();
+}
+
+function openCalendarNote(date, entryId = null) {
   selectedCalendarDate = date;
+  editingCalendarEntryId = entryId;
+  const entry = entryId ? (calendarEntries[date] || []).find(item => item.id === entryId) : null;
   const dialog = document.querySelector('#calendarDialog');
   document.querySelector('#calendarNoteDate').value = date;
-  document.querySelector('#calendarNoteText').value = calendarNotes[date] || '';
-  document.querySelector('#calendarDialogTitle').textContent = calendarNotes[date] ? '编辑 ' + formatCalendarDate(date) + ' 的备注' : '为 ' + formatCalendarDate(date) + ' 添加备注';
-  document.querySelector('#deleteCalendarNote').hidden = !calendarNotes[date];
+  document.querySelector('#calendarEventTitle').value = entry ? entry.title : '';
+  document.querySelector('#calendarEventTime').value = entry ? entry.time : '';
+  document.querySelector('#calendarNoteText').value = entry ? entry.note : '';
+  document.querySelector('#calendarDialogTitle').textContent = entry ? '编辑 ' + formatCalendarDate(date) + ' 的日程' : '为 ' + formatCalendarDate(date) + ' 新建日程';
+  document.querySelector('#deleteCalendarNote').hidden = !entry;
+  document.querySelector('#calendarFormError').hidden = true;
   dialog.showModal();
-  document.querySelector('#calendarNoteText').focus();
+  document.querySelector('#calendarEventTitle').focus();
 }
 
 function loadIdeas() {
@@ -186,12 +231,12 @@ document.addEventListener('click', event => {
 
   const calendarDay = event.target.closest('[data-calendar-date]');
   if (calendarDay) {
-    openCalendarNote(calendarDay.dataset.calendarDate);
+    openCalendarNote(calendarDay.dataset.calendarDate, calendarDay.dataset.calendarEntryId || null);
     return;
   }
 
   if (event.target.id === 'addCalendarNote') {
-    openCalendarNote(selectedCalendarDate);
+    openCalendarNote(toDateKey(calendarView));
     return;
   }
 
@@ -233,23 +278,42 @@ document.querySelector('#ideasList').addEventListener('input', event => {
 document.querySelector('#calendarNoteForm').addEventListener('submit', event => {
   event.preventDefault();
   const date = document.querySelector('#calendarNoteDate').value;
+  const title = document.querySelector('#calendarEventTitle').value.trim();
+  const time = document.querySelector('#calendarEventTime').value;
   const note = document.querySelector('#calendarNoteText').value.trim();
-  if (!date || !note) return;
-  calendarNotes[date] = note;
+  const error = document.querySelector('#calendarFormError');
+  if (!date || (!title && !note)) {
+    error.hidden = false;
+    return;
+  }
+  const entry = { id: editingCalendarEntryId || newId(), title, time, note };
+  const entries = calendarEntries[date] || [];
+  if (editingCalendarEntryId && selectedCalendarDate !== date) {
+    const originalEntries = (calendarEntries[selectedCalendarDate] || []).filter(item => item.id !== editingCalendarEntryId);
+    if (originalEntries.length) calendarEntries[selectedCalendarDate] = originalEntries;
+    else delete calendarEntries[selectedCalendarDate];
+  }
+  const existingIndex = entries.findIndex(item => item.id === editingCalendarEntryId);
+  if (existingIndex >= 0) entries[existingIndex] = entry;
+  else entries.push(entry);
+  calendarEntries[date] = entries;
   selectedCalendarDate = date;
-  saveCalendarNotes();
+  calendarView = new Date(dateFromKey(date).getFullYear(), dateFromKey(date).getMonth(), 1);
+  saveCalendarEntries();
   renderCalendar();
   document.querySelector('#calendarDialog').close();
-  show('日历备注已保存');
+  show(editingCalendarEntryId ? '日程已更新' : '日程已保存');
 });
 
 document.querySelector('#deleteCalendarNote').addEventListener('click', () => {
-  if (!calendarNotes[selectedCalendarDate]) return;
-  delete calendarNotes[selectedCalendarDate];
-  saveCalendarNotes();
+  const entries = calendarEntries[selectedCalendarDate] || [];
+  const remaining = entries.filter(item => item.id !== editingCalendarEntryId);
+  if (remaining.length) calendarEntries[selectedCalendarDate] = remaining;
+  else delete calendarEntries[selectedCalendarDate];
+  saveCalendarEntries();
   renderCalendar();
   document.querySelector('#calendarDialog').close();
-  show('日历备注已删除');
+  show('日程已删除');
 });
 
 document.querySelector('#closeCalendarDialog').addEventListener('click', () => {
@@ -259,6 +323,13 @@ document.querySelector('#closeCalendarDialog').addEventListener('click', () => {
 document.querySelector('#cancelCalendarNote').addEventListener('click', () => {
   document.querySelector('#calendarDialog').close();
 });
+
+document.querySelector('#calendarDialog').addEventListener('click', event => {
+  if (event.target === event.currentTarget) event.currentTarget.close();
+});
+
+document.querySelector('#previousCalendarMonth').addEventListener('click', () => changeCalendarMonth(-1));
+document.querySelector('#nextCalendarMonth').addEventListener('click', () => changeCalendarMonth(1));
 
 document.querySelector('#taskList').addEventListener('change', event => {
   if (event.target.matches('input[type="checkbox"]')) updateTaskCount();
