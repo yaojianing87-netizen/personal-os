@@ -93,20 +93,103 @@ function saveTasks() {
 function loadNotes() {
   try {
     const saved = JSON.parse(localStorage.getItem('atelier-notes') || '{}');
-    if (Array.isArray(saved)) return { folders: [], notes: saved.filter(note => note && typeof note.title === 'string').map(note => ({ id: note.id || newId(), folderId: null, title: note.title, body: note.body || '' })) };
-    return { folders: Array.isArray(saved.folders) ? saved.folders : [], notes: Array.isArray(saved.notes) ? saved.notes : [] };
+    const legacyNotes = Array.isArray(saved) ? saved : null;
+    const storedFolders = !legacyNotes && saved && typeof saved === 'object' && Array.isArray(saved.folders) ? saved.folders : [];
+    const usedFolderIds = new Set();
+    const uniqueFolderId = value => {
+      let id = typeof value === 'string' && value.trim() && !usedFolderIds.has(value) ? value : newId();
+      while (usedFolderIds.has(id)) id = newId();
+      usedFolderIds.add(id);
+      return id;
+    };
+    const folders = storedFolders
+      .filter(folder => folder && typeof folder === 'object' && typeof folder.name === 'string')
+      .map(folder => ({
+        id: uniqueFolderId(folder.id),
+        parentId: typeof folder.parentId === 'string' ? folder.parentId : null,
+        name: folder.name,
+        icon: typeof folder.icon === 'string' && folder.icon ? folder.icon : '◫'
+      }));
+    const folderIds = new Set(folders.map(folder => folder.id));
+    const foldersById = new Map(folders.map(folder => [folder.id, folder]));
+    folders.forEach(folder => {
+      if (!folderIds.has(folder.parentId) || folder.parentId === folder.id) folder.parentId = null;
+    });
+    folders.forEach(folder => {
+      const visited = new Set([folder.id]);
+      let parentId = folder.parentId;
+      while (parentId) {
+        if (visited.has(parentId)) {
+          folder.parentId = null;
+          break;
+        }
+        visited.add(parentId);
+        parentId = foldersById.get(parentId)?.parentId || null;
+      }
+    });
+
+    const storedNotes = legacyNotes || (saved && typeof saved === 'object' && Array.isArray(saved.notes) ? saved.notes : []);
+    const usedNoteIds = new Set();
+    const uniqueNoteId = value => {
+      let id = typeof value === 'string' && value.trim() && !usedNoteIds.has(value) ? value : newId();
+      while (usedNoteIds.has(id)) id = newId();
+      usedNoteIds.add(id);
+      return id;
+    };
+    const notes = storedNotes
+      .filter(note => note && typeof note === 'object' && typeof note.title === 'string')
+      .map(note => ({
+        id: uniqueNoteId(note.id),
+        folderId: !legacyNotes && typeof note.folderId === 'string' && folderIds.has(note.folderId) ? note.folderId : null,
+        title: note.title,
+        body: typeof note.body === 'string' ? note.body : ''
+      }));
+    return { folders, notes };
   } catch { return { folders: [], notes: [] }; }
 }
 function saveNotes() { localStorage.setItem('atelier-notes', JSON.stringify(noteStore)); }
 function renderNotes() {
+  if (currentFolderId && !noteStore.folders.some(item => item.id === currentFolderId)) currentFolderId = null;
   const folder = noteStore.folders.find(item => item.id === currentFolderId);
-  document.querySelector('#notesPath').innerHTML = '<button type="button" data-notes-root>笔记</button>' + (folder ? ' <span>／</span> <b>' + escapeHtml(folder.name) + '</b>' : '');
+  const ancestors = [];
+  const visited = new Set();
+  let parent = folder;
+  while (parent && !visited.has(parent.id)) {
+    visited.add(parent.id);
+    ancestors.unshift(parent);
+    parent = noteStore.folders.find(item => item.id === parent.parentId) || null;
+  }
+  const parentButton = folder
+    ? '<button type="button" data-notes-parent aria-label="返回上一级">‹ 上一级</button>'
+    : '';
+  const breadcrumb = ancestors.map((item, index) => {
+    const isCurrent = index === ancestors.length - 1;
+    return '<span aria-hidden="true">／</span>' + (isCurrent
+      ? '<b aria-current="location">' + escapeHtml(item.name) + '</b>'
+      : '<button type="button" data-open-folder="' + escapeHtml(item.id) + '">' + escapeHtml(item.name) + '</button>');
+  }).join('');
+  document.querySelector('#notesPath').innerHTML =
+    '<button type="button" data-notes-root>笔记</button>' + breadcrumb + parentButton;
   const folders = noteStore.folders.filter(item => item.parentId === currentFolderId);
   const notes = noteStore.notes.filter(item => item.folderId === currentFolderId);
-  document.querySelector('#notesItems').innerHTML = folders.map(item => '<article class="note-folder"><button type="button" data-open-folder="' + item.id + '"><span>' + escapeHtml(item.icon || '◫') + '</span><b>' + escapeHtml(item.name) + '</b></button><button type="button" data-edit-folder="' + item.id + '" aria-label="编辑文件夹">•••</button></article>').join('') + notes.map(item => '<button class="note-item" type="button" data-open-note="' + item.id + '"><span>▤</span><b>' + escapeHtml(item.title || '未命名笔记') + '</b><small>' + escapeHtml((item.body || '空白笔记').slice(0, 45)) + '</small></button>').join('') || '<p class="notes-empty">这里还没有内容。创建一个文件夹或笔记开始吧。</p>';
+  const folderMarkup = folders.map(item => {
+    const id = escapeHtml(item.id);
+    const name = escapeHtml(item.name);
+    return '<article class="note-folder"><button class="note-folder-open" type="button" data-open-folder="' + id + '" aria-label="打开文件夹：' + name + '"><span aria-hidden="true">' + escapeHtml(item.icon) + '</span><b>' + name + '</b></button><button class="note-folder-edit" type="button" data-edit-folder="' + id + '" aria-label="编辑文件夹：' + name + '">•••</button></article>';
+  }).join('');
+  const noteMarkup = notes.map(item => {
+    const id = escapeHtml(item.id);
+    const title = escapeHtml(item.title || '未命名笔记');
+    const excerpt = escapeHtml(item.body || '空白笔记').slice(0, 80);
+    return '<button class="note-item' + (item.id === activeNoteId ? ' selected' : '') + '" type="button" data-open-note="' + id + '"' + (item.id === activeNoteId ? ' aria-current="true"' : '') + '><span aria-hidden="true">▤</span><b>' + title + '</b><small>' + excerpt + '</small></button>';
+  }).join('');
+  document.querySelector('#notesItems').innerHTML = folderMarkup + noteMarkup ||
+    '<p class="notes-empty">' + (folder ? '这个文件夹还没有内容。可以新建笔记或子文件夹。' : '这里还没有内容。创建一个文件夹或笔记开始吧。') + '</p>';
   const note = noteStore.notes.find(item => item.id === activeNoteId);
   document.querySelector('#noteEditor').hidden = !note;
+  document.querySelector('.notes-workspace').classList.toggle('has-active-note', Boolean(note));
   if (note) { document.querySelector('#noteTitle').value = note.title; document.querySelector('#noteBody').value = note.body; }
+  updateDashboardNotePreview();
 }
 function openFolderDialog(id = null) {
   editingFolderId = id;
@@ -117,6 +200,38 @@ function openFolderDialog(id = null) {
   document.querySelector('#deleteFolder').hidden = !folder;
   document.querySelector('#folderDialog').showModal();
   document.querySelector('#folderNameInput').focus();
+}
+
+function createNote() {
+  const note = { id: newId(), folderId: currentFolderId, title: '未命名笔记', body: '' };
+  noteStore.notes.push(note);
+  activeNoteId = note.id;
+  saveNotes();
+  renderNotes();
+  document.querySelector('#noteTitle').focus();
+}
+
+function updateNoteListing(note) {
+  const item = [...document.querySelectorAll('#notesItems [data-open-note]')]
+    .find(element => element.dataset.openNote === note.id);
+  if (item) {
+    item.querySelector('b').textContent = note.title || '未命名笔记';
+    item.querySelector('small').textContent = note.body || '空白笔记';
+  }
+  updateDashboardNotePreview();
+}
+
+function updateDashboardNotePreview() {
+  const preview = document.querySelector('#dashboardNotePreview');
+  if (!preview) return;
+  const latest = noteStore.notes[noteStore.notes.length - 1];
+  if (!latest) {
+    preview.innerHTML = '<small>正式笔记</small><h3>把值得长期保存的内容放在这里。</h3><p>你的笔记会保存在当前浏览器中。</p>';
+    return;
+  }
+  const excerpt = latest.body.trim().slice(0, 90);
+  preview.innerHTML = '<small>最近一篇笔记</small><h3>' + escapeHtml(latest.title || '未命名笔记') +
+    '</h3><p>' + escapeHtml(excerpt || '打开笔记，继续补充正文。') + '</p>';
 }
 
 function formatCalendarDate(dateString) {
@@ -174,7 +289,15 @@ function openCalendarNote(date, entryId = null) {
 function loadIdeas() {
   try {
     const saved = JSON.parse(localStorage.getItem('atelier-ideas') || '[]');
-    return Array.isArray(saved) ? saved.filter(note => note && typeof note.text === 'string').map(note => ({ id: note.id || newId(), text: note.text, pinned: Boolean(note.pinned), color: note.color || 'peach' })) : [];
+    const colors = new Set(['peach', 'mint', 'mist', 'cream']);
+    return Array.isArray(saved) ? saved
+      .filter(note => note && typeof note === 'object' && typeof note.text === 'string')
+      .map(note => ({
+        id: typeof note.id === 'string' && note.id ? note.id : newId(),
+        text: note.text,
+        pinned: Boolean(note.pinned),
+        color: colors.has(note.color) ? note.color : 'peach'
+      })) : [];
   } catch {
     return [];
   }
@@ -185,7 +308,7 @@ function saveIdeas() {
 }
 
 function escapeHtml(value) {
-  return value.replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' })[char]);
+  return String(value ?? '').replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' })[char]);
 }
 
 function renderIdeas() {
@@ -201,12 +324,12 @@ function renderIdeas() {
 
   const ordered = [...ideas].sort((a, b) => Number(b.pinned) - Number(a.pinned));
   list.innerHTML = ordered.map(note => `
-    <article class="sticky-note note-tone-${note.color}" data-idea-id="${note.id}">
+    <article class="sticky-note note-tone-${note.color}" data-idea-id="${escapeHtml(note.id)}">
       <textarea aria-label="编辑灵感便签">${escapeHtml(note.text)}</textarea>
-      <footer><button type="button" class="idea-pin" data-pin-idea aria-label="置顶或取消置顶">${note.pinned ? '已置顶' : '置顶'}</button><select data-idea-color aria-label="便签颜色"><option value="peach" ${note.color === 'peach' ? 'selected' : ''}>桃色</option><option value="mint" ${note.color === 'mint' ? 'selected' : ''}>薄荷</option><option value="mist" ${note.color === 'mist' ? 'selected' : ''}>雾蓝</option><option value="cream" ${note.color === 'cream' ? 'selected' : ''}>奶油</option></select><button type="button" class="delete-idea" aria-label="删除这张便签">删除</button></footer>
+      <footer><button type="button" class="idea-pin" data-pin-idea aria-pressed="${note.pinned}" aria-label="${note.pinned ? '取消置顶' : '置顶'}">${note.pinned ? '已置顶' : '置顶'}</button><select data-idea-color aria-label="便签颜色"><option value="peach" ${note.color === 'peach' ? 'selected' : ''}>桃色</option><option value="mint" ${note.color === 'mint' ? 'selected' : ''}>薄荷</option><option value="mist" ${note.color === 'mist' ? 'selected' : ''}>雾蓝</option><option value="cream" ${note.color === 'cream' ? 'selected' : ''}>奶油</option></select><button type="button" class="delete-idea" aria-label="删除这张便签">删除</button></footer>
     </article>
   `).join('');
-  preview.innerHTML = `<small>最近记录</small><p>${escapeHtml(ordered[0].text)}</p>`;
+  preview.innerHTML = `<small>最近记录</small><p>${escapeHtml(ideas[0].text)}</p>`;
 }
 
 function taskMarkup(task) {
@@ -261,6 +384,13 @@ function renderThemes() {
 }
 
 document.addEventListener('click', event => {
+  if (event.target.closest('#dashboardAddNote')) {
+    currentFolderId = null;
+    document.querySelector('.nav-item[data-page="notes"]').click();
+    createNote();
+    return;
+  }
+
   const nav = event.target.closest('[data-page]');
   if (nav) {
     document.querySelectorAll('.nav-item').forEach(item => {
@@ -321,8 +451,15 @@ document.addEventListener('click', event => {
 
   if (event.target.id === 'addFolder') { openFolderDialog(); return; }
   if (event.target.id === 'addNote') {
-    const note = { id: newId(), folderId: currentFolderId, title: '未命名笔记', body: '' };
-    noteStore.notes.push(note); activeNoteId = note.id; saveNotes(); renderNotes(); document.querySelector('#noteTitle').focus(); return;
+    createNote();
+    return;
+  }
+  if (event.target.closest('[data-notes-parent]')) {
+    const folder = noteStore.folders.find(item => item.id === currentFolderId);
+    currentFolderId = folder?.parentId || null;
+    activeNoteId = null;
+    renderNotes();
+    return;
   }
   const openFolder = event.target.closest('[data-open-folder]');
   if (openFolder) { currentFolderId = openFolder.dataset.openFolder; activeNoteId = null; renderNotes(); return; }
@@ -332,10 +469,18 @@ document.addEventListener('click', event => {
   const editFolder = event.target.closest('[data-edit-folder]');
   if (editFolder) { openFolderDialog(editFolder.dataset.editFolder); return; }
   const pinIdea = event.target.closest('[data-pin-idea]');
-  if (pinIdea) { const note = ideas.find(item => item.id === pinIdea.closest('[data-idea-id]').dataset.ideaId); note.pinned = !note.pinned; saveIdeas(); renderIdeas(); return; }
+  if (pinIdea) {
+    const note = ideas.find(item => item.id === pinIdea.closest('[data-idea-id]').dataset.ideaId);
+    if (!note) return;
+    note.pinned = !note.pinned;
+    saveIdeas();
+    renderIdeas();
+    return;
+  }
   const deleteButton = event.target.closest('.delete-idea');
   if (deleteButton) {
     const card = deleteButton.closest('[data-idea-id]');
+    if (!confirm('删除这张灵感便签？此操作无法撤销。')) return;
     ideas = ideas.filter(note => note.id !== card.dataset.ideaId);
     saveIdeas();
     renderIdeas();
@@ -370,7 +515,10 @@ document.querySelector('#ideasList').addEventListener('input', event => {
 document.querySelector('#ideasList').addEventListener('change', event => {
   if (!event.target.matches('[data-idea-color]')) return;
   const note = ideas.find(item => item.id === event.target.closest('[data-idea-id]').dataset.ideaId);
-  note.color = event.target.value; saveIdeas(); renderIdeas();
+  if (!note) return;
+  note.color = event.target.value;
+  saveIdeas();
+  renderIdeas();
 });
 
 document.querySelector('#folderForm').addEventListener('submit', event => {
@@ -396,6 +544,7 @@ document.querySelector('#deleteNote').addEventListener('click', () => {
 ['noteTitle', 'noteBody'].forEach(id => document.querySelector('#' + id).addEventListener('input', event => {
   const note = noteStore.notes.find(item => item.id === activeNoteId); if (!note) return;
   if (id === 'noteTitle') note.title = event.target.value; else note.body = event.target.value; saveNotes();
+  updateNoteListing(note);
 }));
 
 document.querySelector('#calendarNoteForm').addEventListener('submit', event => {

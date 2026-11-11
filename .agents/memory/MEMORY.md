@@ -1,0 +1,1 @@
+- [Notes and Inspiration roles](notes-and-inspiration.md) — Keep long-form, folder-based Notes separate from quick, unfiled Inspiration cards.
