@@ -16,6 +16,10 @@ let calendarView = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
 let editingCalendarEntryId = null;
 let tasks = loadTasks();
 let editingTaskId = null;
+let noteStore = loadNotes();
+let currentFolderId = null;
+let activeNoteId = null;
+let editingFolderId = null;
 
 function loadAppearance() {
   try {
@@ -86,6 +90,35 @@ function saveTasks() {
   localStorage.setItem('atelier-tasks', JSON.stringify(tasks));
 }
 
+function loadNotes() {
+  try {
+    const saved = JSON.parse(localStorage.getItem('atelier-notes') || '{}');
+    if (Array.isArray(saved)) return { folders: [], notes: saved.filter(note => note && typeof note.title === 'string').map(note => ({ id: note.id || newId(), folderId: null, title: note.title, body: note.body || '' })) };
+    return { folders: Array.isArray(saved.folders) ? saved.folders : [], notes: Array.isArray(saved.notes) ? saved.notes : [] };
+  } catch { return { folders: [], notes: [] }; }
+}
+function saveNotes() { localStorage.setItem('atelier-notes', JSON.stringify(noteStore)); }
+function renderNotes() {
+  const folder = noteStore.folders.find(item => item.id === currentFolderId);
+  document.querySelector('#notesPath').innerHTML = '<button type="button" data-notes-root>笔记</button>' + (folder ? ' <span>／</span> <b>' + escapeHtml(folder.name) + '</b>' : '');
+  const folders = noteStore.folders.filter(item => item.parentId === currentFolderId);
+  const notes = noteStore.notes.filter(item => item.folderId === currentFolderId);
+  document.querySelector('#notesItems').innerHTML = folders.map(item => '<article class="note-folder"><button type="button" data-open-folder="' + item.id + '"><span>' + escapeHtml(item.icon || '◫') + '</span><b>' + escapeHtml(item.name) + '</b></button><button type="button" data-edit-folder="' + item.id + '" aria-label="编辑文件夹">•••</button></article>').join('') + notes.map(item => '<button class="note-item" type="button" data-open-note="' + item.id + '"><span>▤</span><b>' + escapeHtml(item.title || '未命名笔记') + '</b><small>' + escapeHtml((item.body || '空白笔记').slice(0, 45)) + '</small></button>').join('') || '<p class="notes-empty">这里还没有内容。创建一个文件夹或笔记开始吧。</p>';
+  const note = noteStore.notes.find(item => item.id === activeNoteId);
+  document.querySelector('#noteEditor').hidden = !note;
+  if (note) { document.querySelector('#noteTitle').value = note.title; document.querySelector('#noteBody').value = note.body; }
+}
+function openFolderDialog(id = null) {
+  editingFolderId = id;
+  const folder = noteStore.folders.find(item => item.id === id);
+  document.querySelector('#folderDialogTitle').textContent = folder ? '编辑文件夹' : '新建文件夹';
+  document.querySelector('#folderNameInput').value = folder ? folder.name : '';
+  document.querySelector('#folderIconInput').value = folder ? folder.icon : '◫';
+  document.querySelector('#deleteFolder').hidden = !folder;
+  document.querySelector('#folderDialog').showModal();
+  document.querySelector('#folderNameInput').focus();
+}
+
 function formatCalendarDate(dateString) {
   return new Intl.DateTimeFormat('zh-CN', { month: 'long', day: 'numeric', weekday: 'short' })
     .format(dateFromKey(dateString));
@@ -141,7 +174,7 @@ function openCalendarNote(date, entryId = null) {
 function loadIdeas() {
   try {
     const saved = JSON.parse(localStorage.getItem('atelier-ideas') || '[]');
-    return Array.isArray(saved) ? saved.filter(note => note && typeof note.text === 'string') : [];
+    return Array.isArray(saved) ? saved.filter(note => note && typeof note.text === 'string').map(note => ({ id: note.id || newId(), text: note.text, pinned: Boolean(note.pinned), color: note.color || 'peach' })) : [];
   } catch {
     return [];
   }
@@ -166,13 +199,14 @@ function renderIdeas() {
     return;
   }
 
-  list.innerHTML = ideas.map((note, index) => `
-    <article class="sticky-note note-tone-${index % 4}" data-idea-id="${note.id}">
+  const ordered = [...ideas].sort((a, b) => Number(b.pinned) - Number(a.pinned));
+  list.innerHTML = ordered.map(note => `
+    <article class="sticky-note note-tone-${note.color}" data-idea-id="${note.id}">
       <textarea aria-label="编辑灵感便签">${escapeHtml(note.text)}</textarea>
-      <footer><span>自动保存</span><button type="button" class="delete-idea" aria-label="删除这张便签">删除</button></footer>
+      <footer><button type="button" class="idea-pin" data-pin-idea aria-label="置顶或取消置顶">${note.pinned ? '已置顶' : '置顶'}</button><select data-idea-color aria-label="便签颜色"><option value="peach" ${note.color === 'peach' ? 'selected' : ''}>桃色</option><option value="mint" ${note.color === 'mint' ? 'selected' : ''}>薄荷</option><option value="mist" ${note.color === 'mist' ? 'selected' : ''}>雾蓝</option><option value="cream" ${note.color === 'cream' ? 'selected' : ''}>奶油</option></select><button type="button" class="delete-idea" aria-label="删除这张便签">删除</button></footer>
     </article>
   `).join('');
-  preview.innerHTML = `<small>最近记录</small><p>${escapeHtml(ideas[0].text)}</p>`;
+  preview.innerHTML = `<small>最近记录</small><p>${escapeHtml(ordered[0].text)}</p>`;
 }
 
 function taskMarkup(task) {
@@ -285,6 +319,20 @@ document.addEventListener('click', event => {
     return;
   }
 
+  if (event.target.id === 'addFolder') { openFolderDialog(); return; }
+  if (event.target.id === 'addNote') {
+    const note = { id: newId(), folderId: currentFolderId, title: '未命名笔记', body: '' };
+    noteStore.notes.push(note); activeNoteId = note.id; saveNotes(); renderNotes(); document.querySelector('#noteTitle').focus(); return;
+  }
+  const openFolder = event.target.closest('[data-open-folder]');
+  if (openFolder) { currentFolderId = openFolder.dataset.openFolder; activeNoteId = null; renderNotes(); return; }
+  if (event.target.closest('[data-notes-root]')) { currentFolderId = null; activeNoteId = null; renderNotes(); return; }
+  const openNote = event.target.closest('[data-open-note]');
+  if (openNote) { activeNoteId = openNote.dataset.openNote; renderNotes(); return; }
+  const editFolder = event.target.closest('[data-edit-folder]');
+  if (editFolder) { openFolderDialog(editFolder.dataset.editFolder); return; }
+  const pinIdea = event.target.closest('[data-pin-idea]');
+  if (pinIdea) { const note = ideas.find(item => item.id === pinIdea.closest('[data-idea-id]').dataset.ideaId); note.pinned = !note.pinned; saveIdeas(); renderIdeas(); return; }
   const deleteButton = event.target.closest('.delete-idea');
   if (deleteButton) {
     const card = deleteButton.closest('[data-idea-id]');
@@ -303,7 +351,7 @@ document.querySelector('#ideaForm').addEventListener('submit', event => {
     input.focus();
     return;
   }
-  ideas.unshift({ id: typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : String(Date.now()), text });
+  ideas.unshift({ id: newId(), text, pinned: false, color: 'peach' });
   saveIdeas();
   input.value = '';
   renderIdeas();
@@ -319,6 +367,36 @@ document.querySelector('#ideasList').addEventListener('input', event => {
     saveIdeas();
   }
 });
+document.querySelector('#ideasList').addEventListener('change', event => {
+  if (!event.target.matches('[data-idea-color]')) return;
+  const note = ideas.find(item => item.id === event.target.closest('[data-idea-id]').dataset.ideaId);
+  note.color = event.target.value; saveIdeas(); renderIdeas();
+});
+
+document.querySelector('#folderForm').addEventListener('submit', event => {
+  event.preventDefault(); const name = document.querySelector('#folderNameInput').value.trim(); if (!name) return;
+  const icon = document.querySelector('#folderIconInput').value.trim() || '◫';
+  const folder = noteStore.folders.find(item => item.id === editingFolderId);
+  if (folder) { folder.name = name; folder.icon = icon; } else noteStore.folders.push({ id: newId(), parentId: currentFolderId, name, icon });
+  saveNotes(); renderNotes(); document.querySelector('#folderDialog').close(); show('文件夹已保存');
+});
+document.querySelector('#deleteFolder').addEventListener('click', () => {
+  if (!editingFolderId || !confirm('删除该文件夹及其中内容？此操作无法撤销。')) return;
+  const ids = new Set([editingFolderId]); let changed = true;
+  while (changed) { changed = false; noteStore.folders.forEach(folder => { if (ids.has(folder.parentId) && !ids.has(folder.id)) { ids.add(folder.id); changed = true; } }); }
+  noteStore.folders = noteStore.folders.filter(folder => !ids.has(folder.id)); noteStore.notes = noteStore.notes.filter(note => !ids.has(note.folderId));
+  currentFolderId = null; activeNoteId = null; saveNotes(); renderNotes(); document.querySelector('#folderDialog').close(); show('文件夹已删除');
+});
+['closeFolderDialog', 'cancelFolderDialog'].forEach(id => document.querySelector('#' + id).addEventListener('click', () => document.querySelector('#folderDialog').close()));
+document.querySelector('#folderDialog').addEventListener('click', event => { if (event.target === event.currentTarget) event.currentTarget.close(); });
+document.querySelector('#deleteNote').addEventListener('click', () => {
+  if (!activeNoteId || !confirm('删除这篇笔记？此操作无法撤销。')) return;
+  noteStore.notes = noteStore.notes.filter(note => note.id !== activeNoteId); activeNoteId = null; saveNotes(); renderNotes(); show('笔记已删除');
+});
+['noteTitle', 'noteBody'].forEach(id => document.querySelector('#' + id).addEventListener('input', event => {
+  const note = noteStore.notes.find(item => item.id === activeNoteId); if (!note) return;
+  if (id === 'noteTitle') note.title = event.target.value; else note.body = event.target.value; saveNotes();
+}));
 
 document.querySelector('#calendarNoteForm').addEventListener('submit', event => {
   event.preventDefault();
@@ -453,5 +531,6 @@ apply();
 renderIdeas();
 renderCalendar();
 renderTasks();
+renderNotes();
 document.querySelector('#dashboard').classList.add('active');
 
