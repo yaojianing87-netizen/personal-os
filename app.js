@@ -8,10 +8,19 @@ const presets = {
 const defaults = { preset: 'blush', ...presets.blush, blur: 0, overlay: 70, brightness: 100, cardAlpha: 92 };
 const root = document.documentElement;
 const toast = document.querySelector('#toast');
-let state = { ...defaults, ...JSON.parse(localStorage.getItem('atelier-appearance') || '{}') };
+let state = { ...defaults, ...loadAppearance() };
 let ideas = loadIdeas();
 let calendarNotes = loadCalendarNotes();
 let selectedCalendarDate = '2026-11-11';
+
+function loadAppearance() {
+  try {
+    const saved = JSON.parse(localStorage.getItem('atelier-appearance') || '{}');
+    return saved && typeof saved === 'object' && !Array.isArray(saved) ? saved : {};
+  } catch {
+    return {};
+  }
+}
 
 function loadCalendarNotes() {
   try {
@@ -95,6 +104,23 @@ function renderIdeas() {
   preview.innerHTML = `<small>最近记录</small><p>${escapeHtml(ideas[0].text)}</p>`;
 }
 
+function updateTaskCount() {
+  const remaining = document.querySelectorAll('#taskList .task input:not(:checked)').length;
+  document.querySelector('#taskCount').textContent = String(remaining);
+  document.querySelector('.nav-item[data-page="tasks"] b').textContent = String(remaining);
+}
+
+function addTask() {
+  const text = prompt('写下此刻要做的一件事');
+  if (!text || !text.trim()) return;
+  const label = document.createElement('label');
+  label.className = 'task';
+  label.innerHTML = '<input type="checkbox"><span></span>' + escapeHtml(text.trim()) + '<i>NEW</i>';
+  document.querySelector('#taskList').append(label);
+  updateTaskCount();
+  show('已加入今天的任务');
+}
+
 function apply() {
   for (const key of ['paper', 'card', 'ink', 'primary', 'accent']) root.style.setProperty('--' + key, state[key]);
   root.style.setProperty('--wall-blur', state.blur + 'px');
@@ -120,9 +146,15 @@ function renderThemes() {
 document.addEventListener('click', event => {
   const nav = event.target.closest('[data-page]');
   if (nav) {
-    document.querySelectorAll('.nav-item').forEach(item => item.classList.remove('active'));
+    document.querySelectorAll('.nav-item').forEach(item => {
+      item.classList.remove('active');
+      item.removeAttribute('aria-current');
+    });
     const matchingNav = document.querySelector('.nav-item[data-page="' + nav.dataset.page + '"]');
-    if (matchingNav) matchingNav.classList.add('active');
+    if (matchingNav) {
+      matchingNav.classList.add('active');
+      matchingNav.setAttribute('aria-current', 'page');
+    }
     document.querySelectorAll('.page').forEach(page => page.classList.remove('active'));
     document.querySelector('#' + nav.dataset.page).classList.add('active');
     return;
@@ -141,20 +173,15 @@ document.addEventListener('click', event => {
     show('已恢复 Atelier Blush');
   }
 
-  if (event.target.id === 'quickTask' || event.target.id === 'addTask') {
-    const text = prompt('写下此刻要做的一件事');
-    if (text) {
-      const label = document.createElement('label');
-      label.className = 'task';
-      label.innerHTML = '<input type="checkbox"><span></span>' + escapeHtml(text) + '<i>NEW</i>';
-      document.querySelector('#taskList').append(label);
-      show('已加入今天的任务');
-    }
+  if (event.target.closest('[data-add-task]') || event.target.id === 'quickTask') {
+    addTask();
   }
 
   if (event.target.id === 'editDashboard') {
-    document.querySelectorAll('.card').forEach(card => card.style.outline = '2px dashed var(--ink)');
-    show('编辑模式：拖拽排序将在数据阶段启用');
+    const dashboard = document.querySelector('#dashboardGrid');
+    const editing = dashboard.classList.toggle('is-editing');
+    event.target.setAttribute('aria-pressed', String(editing));
+    show(editing ? '已进入编辑模式；再次点击即可退出' : '已退出编辑模式');
   }
 
   const calendarDay = event.target.closest('[data-calendar-date]');
@@ -225,6 +252,18 @@ document.querySelector('#deleteCalendarNote').addEventListener('click', () => {
   show('日历备注已删除');
 });
 
+document.querySelector('#closeCalendarDialog').addEventListener('click', () => {
+  document.querySelector('#calendarDialog').close();
+});
+
+document.querySelector('#cancelCalendarNote').addEventListener('click', () => {
+  document.querySelector('#calendarDialog').close();
+});
+
+document.querySelector('#taskList').addEventListener('change', event => {
+  if (event.target.matches('input[type="checkbox"]')) updateTaskCount();
+});
+
 document.querySelectorAll('[data-token]').forEach(input => input.addEventListener('input', event => {
   state[event.target.dataset.token] = event.target.value;
   state.preset = 'custom';
@@ -256,5 +295,6 @@ function show(message) {
 apply();
 renderIdeas();
 renderCalendar();
+updateTaskCount();
 document.querySelector('#dashboard').classList.add('active');
 
