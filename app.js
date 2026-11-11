@@ -14,6 +14,8 @@ let calendarEntries = loadCalendarEntries();
 let selectedCalendarDate = toDateKey(new Date());
 let calendarView = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
 let editingCalendarEntryId = null;
+let tasks = loadTasks();
+let editingTaskId = null;
 
 function loadAppearance() {
   try {
@@ -58,6 +60,30 @@ function loadCalendarEntries() {
 
 function saveCalendarEntries() {
   localStorage.setItem('atelier-calendar-notes', JSON.stringify(calendarEntries));
+}
+
+function loadTasks() {
+  const defaults = [
+    { id: 'starter-1', title: '整理灵感收集箱', priority: 'LOW', completed: true },
+    { id: 'starter-2', title: '完成设计探索', priority: 'HIGH', completed: false },
+    { id: 'starter-3', title: '给妈妈打电话', priority: 'PERSONAL', completed: false }
+  ];
+  try {
+    const saved = JSON.parse(localStorage.getItem('atelier-tasks') || 'null');
+    if (!Array.isArray(saved)) return defaults;
+    return saved.filter(task => task && typeof task.title === 'string').map(task => ({
+      id: task.id || newId(),
+      title: task.title,
+      priority: ['LOW', 'HIGH', 'PERSONAL'].includes(task.priority) ? task.priority : 'LOW',
+      completed: Boolean(task.completed)
+    }));
+  } catch {
+    return defaults;
+  }
+}
+
+function saveTasks() {
+  localStorage.setItem('atelier-tasks', JSON.stringify(tasks));
 }
 
 function formatCalendarDate(dateString) {
@@ -149,21 +175,33 @@ function renderIdeas() {
   preview.innerHTML = `<small>最近记录</small><p>${escapeHtml(ideas[0].text)}</p>`;
 }
 
-function updateTaskCount() {
-  const remaining = document.querySelectorAll('#taskList .task input:not(:checked)').length;
-  document.querySelector('#taskCount').textContent = String(remaining);
-  document.querySelector('.nav-item[data-page="tasks"] b').textContent = String(remaining);
+function taskMarkup(task) {
+  return '<article class="task ' + (task.completed ? 'done' : '') + '" data-task-id="' + task.id + '"><label class="task-check"><input type="checkbox" data-task-toggle ' + (task.completed ? 'checked' : '') + ' aria-label="标记“' + escapeHtml(task.title) + '”完成"><span></span></label><button class="task-title" type="button" data-edit-task>' + escapeHtml(task.title) + '</button><button class="task-priority priority-' + task.priority.toLowerCase() + '" type="button" data-edit-task aria-label="编辑“' + escapeHtml(task.title) + '”的优先级">' + task.priority + '</button><button class="task-edit" type="button" data-edit-task aria-label="编辑“' + escapeHtml(task.title) + '”">编辑</button></article>';
 }
 
-function addTask() {
-  const text = prompt('写下此刻要做的一件事');
-  if (!text || !text.trim()) return;
-  const label = document.createElement('label');
-  label.className = 'task';
-  label.innerHTML = '<input type="checkbox"><span></span>' + escapeHtml(text.trim()) + '<i>NEW</i>';
-  document.querySelector('#taskList').append(label);
+function renderTasks() {
+  const orderedTasks = [...tasks].sort((a, b) => Number(a.completed) - Number(b.completed));
+  document.querySelector('#taskList').innerHTML = orderedTasks.slice(0, 4).map(taskMarkup).join('') || '<p class="tasks-empty">还没有任务。</p>';
+  document.querySelector('#tasksPageList').innerHTML = orderedTasks.map(taskMarkup).join('') || '<p class="tasks-empty">还没有任务。点击“新建任务”开始吧。</p>';
   updateTaskCount();
-  show('已加入今天的任务');
+}
+
+function updateTaskCount() {
+  const remaining = tasks.filter(task => !task.completed).length;
+  document.querySelector('#taskCount').textContent = String(remaining);
+  document.querySelector('.nav-item[data-page="tasks"] b').textContent = String(remaining);
+  document.querySelector('#taskSummary').textContent = remaining ? '还有 ' + remaining + ' 项任务等待完成。' : '今天的任务已全部完成。';
+}
+
+function openTaskDialog(taskId = null) {
+  editingTaskId = taskId;
+  const task = taskId ? tasks.find(item => item.id === taskId) : null;
+  document.querySelector('#taskDialogTitle').textContent = task ? '编辑任务' : '新建任务';
+  document.querySelector('#taskTitleInput').value = task ? task.title : '';
+  document.querySelector('#taskPriorityInput').value = task ? task.priority : 'LOW';
+  document.querySelector('#deleteTask').hidden = !task;
+  document.querySelector('#taskDialog').showModal();
+  document.querySelector('#taskTitleInput').focus();
 }
 
 function apply() {
@@ -219,7 +257,14 @@ document.addEventListener('click', event => {
   }
 
   if (event.target.closest('[data-add-task]') || event.target.id === 'quickTask') {
-    addTask();
+    openTaskDialog();
+    return;
+  }
+
+  const editTask = event.target.closest('[data-edit-task]');
+  if (editTask) {
+    openTaskDialog(editTask.closest('[data-task-id]').dataset.taskId);
+    return;
   }
 
   if (event.target.id === 'editDashboard') {
@@ -324,6 +369,42 @@ document.querySelector('#cancelCalendarNote').addEventListener('click', () => {
   document.querySelector('#calendarDialog').close();
 });
 
+document.querySelector('#taskForm').addEventListener('submit', event => {
+  event.preventDefault();
+  const title = document.querySelector('#taskTitleInput').value.trim();
+  if (!title) {
+    document.querySelector('#taskTitleInput').focus();
+    return;
+  }
+  const priority = document.querySelector('#taskPriorityInput').value;
+  const existing = tasks.find(task => task.id === editingTaskId);
+  if (existing) {
+    existing.title = title;
+    existing.priority = priority;
+  } else {
+    tasks.push({ id: newId(), title, priority, completed: false });
+  }
+  saveTasks();
+  renderTasks();
+  document.querySelector('#taskDialog').close();
+  show(existing ? '任务已更新' : '任务已创建');
+});
+
+document.querySelector('#deleteTask').addEventListener('click', () => {
+  if (!editingTaskId) return;
+  tasks = tasks.filter(task => task.id !== editingTaskId);
+  saveTasks();
+  renderTasks();
+  document.querySelector('#taskDialog').close();
+  show('任务已删除');
+});
+
+document.querySelector('#closeTaskDialog').addEventListener('click', () => document.querySelector('#taskDialog').close());
+document.querySelector('#cancelTaskDialog').addEventListener('click', () => document.querySelector('#taskDialog').close());
+document.querySelector('#taskDialog').addEventListener('click', event => {
+  if (event.target === event.currentTarget) event.currentTarget.close();
+});
+
 document.querySelector('#calendarDialog').addEventListener('click', event => {
   if (event.target === event.currentTarget) event.currentTarget.close();
 });
@@ -331,8 +412,13 @@ document.querySelector('#calendarDialog').addEventListener('click', event => {
 document.querySelector('#previousCalendarMonth').addEventListener('click', () => changeCalendarMonth(-1));
 document.querySelector('#nextCalendarMonth').addEventListener('click', () => changeCalendarMonth(1));
 
-document.querySelector('#taskList').addEventListener('change', event => {
-  if (event.target.matches('input[type="checkbox"]')) updateTaskCount();
+document.addEventListener('change', event => {
+  if (!event.target.matches('[data-task-toggle]')) return;
+  const task = tasks.find(item => item.id === event.target.closest('[data-task-id]').dataset.taskId);
+  if (!task) return;
+  task.completed = event.target.checked;
+  saveTasks();
+  renderTasks();
 });
 
 document.querySelectorAll('[data-token]').forEach(input => input.addEventListener('input', event => {
@@ -366,6 +452,6 @@ function show(message) {
 apply();
 renderIdeas();
 renderCalendar();
-updateTaskCount();
+renderTasks();
 document.querySelector('#dashboard').classList.add('active');
 
