@@ -71,3 +71,10 @@
 .travel-map-hint{font-size:11px;line-height:1.5;color:var(--muted);margin:12px 4px 2px}
 @media(max-width:900px){.travel-stats{grid-template-columns:1fr}.travel-panel{min-height:0}.travel-actions{max-width:none}}
 @media(max-width:620px){.travel-page{padding:0 14px 28px}.travel-head{padding:22px 0 16px}.travel-actions .primary-btn{width:100%}.travel-stats{gap:12px}.travel-panel{padding:16px}.travel-list{max-height:180px}.travel-map{height:340px}}
+
+/* 今日重点：可编辑区域 */
+.focus-main [contenteditable]{outline:0;border-radius:6px;padding:2px 4px;margin-left:-4px;transition:background .16s,box-shadow .16s}
+.focus-main [contenteditable]:hover{background:color-mix(in srgb,var(--card) 45%,transparent)}
+.focus-main [contenteditable]:focus{background:color-mix(in srgb,var(--card) 72%,transparent);box-shadow:0 0 0 1px color-mix(in srgb,var(--ink) 20%,transparent)}
+.focus-main [contenteditable]:empty:before,.focus-main [contenteditable]:has(>br:only-child):before{content:"点击这里输入…";color:var(--muted)}
+.focus-progress{display:block;width:190px;height:16px;margin:8px 0 0;accent-color:var(--ink);cursor:pointer}

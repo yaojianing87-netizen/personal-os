@@ -937,6 +937,49 @@ document.querySelector('#wallpaperInput').addEventListener('change', event => {
   reader.readAsDataURL(file);
 });
 
+/* 今日重点：标题、描述可直接编辑，进度可拖动，都会自动保存 */
+const FOCUS_KEY = 'atelier-focus';
+function readFocus() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(FOCUS_KEY) || 'null');
+    if (!saved || typeof saved !== 'object') return null;
+    return {
+      title: typeof saved.title === 'string' ? saved.title : '',
+      desc: typeof saved.desc === 'string' ? saved.desc : '',
+      progress: Math.min(100, Math.max(0, Math.round(Number(saved.progress)) || 0))
+    };
+  } catch {
+    return null;
+  }
+}
+function setFocusProgress(value) {
+  const amount = Math.min(100, Math.max(0, Math.round(Number(value)) || 0));
+  document.querySelector('#focusProgress').value = String(amount);
+  document.querySelector('#focusProgressBar').style.width = amount + '%';
+  document.querySelector('#focusProgressLabel').textContent = amount + '% 完成';
+}
+function saveFocus() {
+  localStorage.setItem(FOCUS_KEY, JSON.stringify({
+    title: document.querySelector('#focusTitle').textContent.trim(),
+    desc: document.querySelector('#focusDesc').textContent.trim(),
+    progress: Number(document.querySelector('#focusProgress').value)
+  }));
+}
+function applyFocus() {
+  const saved = readFocus();
+  if (saved) {
+    document.querySelector('#focusTitle').textContent = saved.title;
+    document.querySelector('#focusDesc').textContent = saved.desc;
+  }
+  setFocusProgress(saved ? saved.progress : document.querySelector('#focusProgress').value);
+}
+['focusTitle', 'focusDesc'].forEach(id => document.querySelector('#' + id).addEventListener('input', saveFocus));
+document.querySelector('#focusProgress').addEventListener('input', event => {
+  setFocusProgress(event.target.value);
+  saveFocus();
+});
+applyFocus();
+
 function show(message) {
   toast.textContent = message;
   toast.classList.add('show');

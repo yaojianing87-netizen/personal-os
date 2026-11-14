@@ -39,9 +39,8 @@
           <section class="mood-strip"><div><span class="sun">☼</span><b>今天，慢一点也没关系。</b><p>给自己留下一段专注而柔软的时间。</p></div><button id="editDashboard">编辑版面 <span>↗</span></button></section>
           <div class="dashboard-grid" id="dashboardGrid">
             <article class="card focus-card" data-module="focus">
-              <div class="card-heading"><span><i class="ink-dot"></i> 今日重点</span><button class="more">•••</button></div>
-              <div class="focus-main"><div class="focus-number">01</div><div><h2>完善 Personal OS 的<br />视觉语言</h2><p>让每一次打开，都成为一段安静的开始。</p><div class="progress"><span style="width:72%"></span></div><small>72% 完成</small></div></div>
-              <div class="paper-clip">♡</div>
+              <div class="card-heading"><span><i class="ink-dot"></i> 今日重点</span></div>
+              <div class="focus-main"><div class="focus-number">01</div><div><h2 id="focusTitle" contenteditable="true" spellcheck="false" aria-label="今日重点标题，可直接编辑">完善 Personal OS 的视觉语言</h2><p id="focusDesc" contenteditable="true" spellcheck="false" aria-label="今日重点描述，可直接编辑">让每一次打开，都成为一段安静的开始。</p><div class="progress"><span id="focusProgressBar" style="width:72%"></span></div><small id="focusProgressLabel">72% 完成</small><input type="range" class="focus-progress" id="focusProgress" min="0" max="100" step="1" value="72" aria-label="今日重点完成度" /></div></div>
             </article>
             <article class="card agenda-card" data-module="agenda">
               <div class="card-heading"><span><i class="ink-dot"></i> 接下来</span><button class="text-button" data-page="calendar" type="button">查看日历 →</button></div>
