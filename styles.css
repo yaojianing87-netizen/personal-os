@@ -44,3 +44,4 @@
 .idea-pin[aria-pressed="true"]{font-weight:700;color:var(--ink)}
 @media(max-width:700px){.notes-workspace.has-active-note{grid-template-columns:1fr}.notes-path{gap:5px}.note-editor textarea{min-height:190px}}
 
+.travel-empty{text-align:center;padding:34px 20px;margin-bottom:14px;border:1px dashed #81796b77;border-radius:18px;background:color-mix(in srgb,var(--card) 88%,transparent)}.travel-empty[hidden]{display:none}.travel-empty>span{font-size:32px}.travel-empty h2{font:500 22px Georgia,serif;margin:10px 0 6px}.travel-empty p{font-size:13px;color:var(--muted);margin:0 0 16px}.travel-map{height:420px;border-radius:16px;overflow:hidden}

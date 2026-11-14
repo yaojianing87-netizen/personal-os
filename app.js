@@ -401,15 +401,6 @@ const TRAVEL_STATUS = {
   wishlist: { label: '想去', color: '#C48F9C' },
   planning: { label: '正在计划', color: '#D9A05B' }
 };
-const travelDefaults = [
-  { id: 'travel-tokyo', name: '东京', country: '日本', lat: 35.6762, lon: 139.6503, status: 'planning' },
-  { id: 'travel-kyoto', name: '京都', country: '日本', lat: 35.0116, lon: 135.7681, status: 'wishlist' },
-  { id: 'travel-paris', name: '巴黎', country: '法国', lat: 48.8566, lon: 2.3522, status: 'visited' },
-  { id: 'travel-santorini', name: '圣托里尼', country: '希腊', lat: 36.3932, lon: 25.4615, status: 'wishlist' },
-  { id: 'travel-new-york', name: '纽约', country: '美国', lat: 40.7128, lon: -74.006, status: 'visited' },
-  { id: 'travel-reykjavik', name: '雷克雅未克', country: '冰岛', lat: 64.1466, lon: -21.9426, status: 'wishlist' },
-  { id: 'travel-rome', name: '罗马', country: '意大利', lat: 41.9028, lon: 12.4964, status: 'planning' }
-];
 let travelDestinations = loadTravelDestinations();
 let travelMap = null;
 let travelLayer = null;
@@ -419,7 +410,7 @@ let selectedTravelPlace = null;
 function loadTravelDestinations() {
   try {
     const saved = JSON.parse(localStorage.getItem(TRAVEL_STORAGE_KEY) || 'null');
-    if (!Array.isArray(saved)) return travelDefaults.map(item => ({ ...item }));
+    if (!Array.isArray(saved)) return [];
     return saved
       .filter(item => item && typeof item.name === 'string' && Number.isFinite(Number(item.lat)) && Number.isFinite(Number(item.lon)))
       .map(item => ({
@@ -431,7 +422,7 @@ function loadTravelDestinations() {
         status: TRAVEL_STATUS[item.status] ? item.status : 'wishlist'
       }));
   } catch {
-    return travelDefaults.map(item => ({ ...item }));
+    return [];
   }
 }
 
@@ -446,6 +437,7 @@ function renderTravelStats() {
   document.querySelector('#wishlistCount').textContent = String(wishlist);
   document.querySelector('#visitedCount').textContent = String(visited);
   document.querySelector('#countryCount').textContent = String(countries.size);
+  document.querySelector('#travelEmpty').hidden = travelDestinations.length > 0;
 }
 
 function travelPinIcon(status) {
@@ -579,6 +571,7 @@ function addTravelDestination(event) {
 }
 
 document.querySelector('#addDestination').addEventListener('click', () => openTravelDialog());
+document.querySelector('#addDestinationEmpty').addEventListener('click', () => openTravelDialog());
 document.querySelector('#travelSearchInput').addEventListener('keydown', event => {
   if (event.key === 'Enter') {
     event.preventDefault();

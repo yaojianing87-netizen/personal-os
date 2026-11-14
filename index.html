@@ -92,6 +92,12 @@
             <div class="travel-legend"><span class="legend-dot visited"></span>已去过<span class="legend-dot wishlist"></span>想去<span class="legend-dot planning"></span>正在计划</div>
           </section>
           <section class="travel-map-card" aria-label="世界地图">
+            <div class="travel-empty" id="travelEmpty" hidden>
+              <span aria-hidden="true">✈</span>
+              <h2>还没有任何地点</h2>
+              <p>搜索一个城市或国家，把它加到你的旅行地图上吧。</p>
+              <button class="primary-btn" id="addDestinationEmpty" type="button">＋ 添加地点</button>
+            </div>
             <div id="travelMap" class="travel-map"></div>
             <p class="travel-map-hint">点击地图上的标记可以查看地点；用「添加地点」搜索并保存新的目的地。地图数据来自 OpenStreetMap。</p>
           </section>
