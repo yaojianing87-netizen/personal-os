@@ -107,3 +107,27 @@
 .photo-viewer img{display:block;max-width:100%;max-height:86vh;border-radius:14px;box-shadow:0 24px 60px #0006}
 .photo-viewer .dialog-close{position:absolute;top:-14px;right:-14px;width:34px;height:34px;border-radius:50%;background:var(--paper);color:var(--ink);display:grid;place-items:center;font-size:22px;line-height:1;cursor:pointer;border:0;box-shadow:0 4px 12px #0004}
 @media(max-width:620px){.travel-add-attraction{width:100%;height:44px}.attraction-photo-open img{height:68px}.attraction-dialog{width:calc(100vw - 20px)}}
+/* ===== 正在计划：每个目的地的待办清单 ===== */
+.travel-todo{display:grid;gap:7px;border-top:1px dashed color-mix(in srgb,var(--ink) 16%,transparent);padding-top:9px;margin-top:2px}
+.travel-todo-head{display:flex;justify-content:space-between;align-items:baseline;font-size:11px;font-weight:700}
+.travel-todo-head small{font-size:10px;font-weight:400;color:var(--muted)}
+.travel-todo-bar{height:5px;border-radius:4px;background:color-mix(in srgb,var(--ink) 11%,transparent);overflow:hidden}
+.travel-todo-bar span{display:block;height:100%;border-radius:4px;background:var(--tone);transition:width .2s}
+.travel-todo-list{list-style:none;margin:0;padding:0;display:grid;gap:3px}
+.travel-todo-item{display:grid;grid-template-columns:16px minmax(0,1fr) auto auto;align-items:center;gap:7px;font-size:11.5px;padding:2px 0}
+.travel-todo-check{display:grid;cursor:pointer}
+.travel-todo-check input{position:absolute;opacity:0;width:1px;height:1px}
+.travel-todo-check>span{width:14px;height:14px;border:1.4px solid var(--ink);border-radius:4px;display:grid;place-items:center}
+.travel-todo-check input:checked+span{background:var(--ink)}
+.travel-todo-check input:checked+span:after{content:"✓";color:var(--paper);font-size:9px}
+.travel-todo-item.done .travel-todo-text{color:var(--muted);text-decoration:line-through}
+.travel-todo-text{overflow:hidden;text-overflow:ellipsis}
+.travel-todo-edit-input{width:100%;border:1px solid color-mix(in srgb,var(--ink) 25%,transparent);border-radius:6px;background:var(--card);color:var(--ink);font:inherit;font-size:11.5px;padding:3px 6px;outline-color:var(--primary)}
+.travel-todo-action{border:0;background:none;padding:0;font:inherit;font-size:9.5px;color:var(--muted);cursor:pointer;text-decoration:underline;text-underline-offset:2px}
+.travel-todo-delete{color:#a54c4c}
+.travel-todo-form{display:flex;gap:6px}
+.travel-todo-form input{flex:1;min-width:0;border:1px dashed color-mix(in srgb,var(--ink) 22%,transparent);border-radius:8px;background:color-mix(in srgb,var(--paper) 60%,transparent);color:var(--ink);font:inherit;font-size:11px;padding:6px 8px;outline-color:var(--primary)}
+.travel-todo-form button{border:0;border-radius:8px;background:var(--ink);color:var(--paper);font:inherit;font-size:10px;padding:0 10px;cursor:pointer}
+/* 正在计划面板：待办较多时整张卡片一起变高，不把“添加待办”藏进滚动区 */
+.travel-panel-planning .travel-list{max-height:none}
+.travel-todo-action{white-space:nowrap}

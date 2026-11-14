@@ -496,11 +496,56 @@ function renderTravelStats() {
         return '<div class="travel-place-group"><button class="travel-place" type="button" data-focus-destination="' + id + '"><b>' +
           escapeHtml(place.name) + '</b><small>' + escapeHtml(place.country || '未填写国家') + '</small></button>' +
           '<div class="travel-attractions">' + chips + '<button class="travel-attraction-add" type="button" data-add-attraction="' + id +
-          '">＋ 添加景点</button></div></div>';
+          '">＋ 添加景点</button></div>' + (place.status === 'planning' ? todoMarkup(place) : '') + '</div>';
       }).join('')
       : '<p class="travel-list-empty">' + TRAVEL_EMPTY_TEXT[status] + '</p>';
   });
   document.querySelector('#travelEmpty').hidden = travelDestinations.length > 0;
+}
+
+/* ---------- 每个「正在计划」目的地的独立待办清单 ----------
+   待办按 destinationId 关联，存在 localStorage，勾选/修改都会自动保存。 */
+const TODOS_KEY = 'atelier-travel-todos';
+let travelTodos = loadTravelTodos();
+let editingTodoId = null;
+
+function loadTravelTodos() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(TODOS_KEY) || '[]');
+    if (!Array.isArray(saved)) return [];
+    return saved
+      .filter(item => item && typeof item.destinationId === 'string' && typeof item.text === 'string')
+      .map(item => ({ id: item.id || newId(), destinationId: item.destinationId, text: item.text, done: Boolean(item.done), createdAt: item.createdAt || new Date().toISOString() }));
+  } catch { return []; }
+}
+
+function saveTravelTodos() {
+  localStorage.setItem(TODOS_KEY, JSON.stringify(travelTodos));
+}
+
+function todoMarkup(destination) {
+  const id = escapeHtml(destination.id);
+  const list = travelTodos.filter(item => item.destinationId === destination.id);
+  const done = list.filter(item => item.done).length;
+  const percent = list.length ? Math.round((done / list.length) * 100) : 0;
+  const items = list.map(item => {
+    const todoId = escapeHtml(item.id);
+    const text = escapeHtml(item.text);
+    const editing = item.id === editingTodoId;
+    return '<li class="travel-todo-item' + (item.done ? ' done' : '') + '">' +
+      '<label class="travel-todo-check"><input type="checkbox" data-todo-toggle="' + todoId + '"' + (item.done ? ' checked' : '') + ' aria-label="标记“' + text + '”完成"><span></span></label>' +
+      (editing
+        ? '<input class="travel-todo-edit-input" data-todo-input="' + todoId + '" value="' + text + '" maxlength="120" aria-label="编辑待办" />'
+        : '<span class="travel-todo-text">' + text + '</span>') +
+      '<button type="button" class="travel-todo-action" data-todo-edit="' + todoId + '">编辑</button>' +
+      '<button type="button" class="travel-todo-action travel-todo-delete" data-todo-delete="' + todoId + '">删除</button></li>';
+  }).join('');
+  return '<div class="travel-todo">' +
+    '<div class="travel-todo-head"><span>待办清单</span><small>' + (list.length ? done + '/' + list.length + ' 完成 · ' + percent + '%' : '还没有待办') + '</small></div>' +
+    (list.length ? '<div class="travel-todo-bar"><span style="width:' + percent + '%"></span></div>' : '') +
+    (list.length ? '<ul class="travel-todo-list">' + items + '</ul>' : '') +
+    '<form class="travel-todo-form" data-todo-destination="' + id + '"><input type="text" maxlength="120" placeholder="＋ 添加待办，例如：Research flights" aria-label="为 ' + escapeHtml(destination.name) + ' 添加待办" /><button type="submit">添加</button></form>' +
+    '</div>';
 }
 
 function travelPinIcon(status) {
@@ -830,6 +875,8 @@ async function removeDestinationCascade(destinationId) {
   for (const attraction of attractions) await deletePhotosOfAttraction(attraction.id);
   travelAttractions = travelAttractions.filter(item => item.destinationId !== destinationId);
   saveAttractions();
+  travelTodos = travelTodos.filter(item => item.destinationId !== destinationId);
+  saveTravelTodos();
 }
 
 document.querySelector('#addAttraction').addEventListener('click', () => openAttractionDialog());
@@ -893,9 +940,68 @@ document.querySelector('#attractionDialog').addEventListener('click', event => {
   }
 });
 
+document.querySelector('.travel-stats').addEventListener('change', event => {
+  const toggle = event.target.closest('[data-todo-toggle]');
+  if (!toggle) return;
+  const todo = travelTodos.find(item => item.id === toggle.dataset.todoToggle);
+  if (!todo) return;
+  todo.done = toggle.checked;
+  saveTravelTodos();
+  renderTravelStats();
+});
+document.addEventListener('submit', event => {
+  const form = event.target.closest('.travel-todo-form');
+  if (!form) return;
+  event.preventDefault();
+  const input = form.querySelector('input');
+  const text = input.value.trim();
+  if (!text) { input.focus(); return; }
+  travelTodos.push({ id: newId(), destinationId: form.dataset.todoDestination, text, done: false, createdAt: new Date().toISOString() });
+  saveTravelTodos();
+  renderTravelStats();
+  document.querySelector('.travel-todo-form[data-todo-destination="' + form.dataset.todoDestination + '"] input')?.focus();
+});
+document.querySelector('.travel-stats').addEventListener('keydown', event => {
+  const input = event.target.closest('[data-todo-input]');
+  if (!input) return;
+  if (event.key === 'Enter') {
+    event.preventDefault();
+    const todo = travelTodos.find(item => item.id === input.dataset.todoInput);
+    const text = input.value.trim();
+    if (todo && text) { todo.text = text; saveTravelTodos(); }
+    editingTodoId = null;
+    renderTravelStats();
+  } else if (event.key === 'Escape') {
+    editingTodoId = null;
+    renderTravelStats();
+  }
+});
+document.querySelector('.travel-stats').addEventListener('focusout', event => {
+  const input = event.target.closest('[data-todo-input]');
+  if (!input) return;
+  const todo = travelTodos.find(item => item.id === input.dataset.todoInput);
+  const text = input.value.trim();
+  if (todo && text && text !== todo.text) { todo.text = text; saveTravelTodos(); }
+  if (editingTodoId === input.dataset.todoInput) {
+    editingTodoId = null;
+    renderTravelStats();
+  }
+});
+
 document.querySelector('#addDestination').addEventListener('click', () => openTravelDialog());
 document.querySelector('#addDestinationEmpty').addEventListener('click', () => openTravelDialog());
 document.querySelector('.travel-stats').addEventListener('click', event => {
+  const todoEdit = event.target.closest('[data-todo-edit]');
+  if (todoEdit) { editingTodoId = todoEdit.dataset.todoEdit; renderTravelStats(); document.querySelector('[data-todo-input]')?.focus(); return; }
+  const todoDelete = event.target.closest('[data-todo-delete]');
+  if (todoDelete) {
+    travelTodos = travelTodos.filter(item => item.id !== todoDelete.dataset.todoDelete);
+    if (editingTodoId === todoDelete.dataset.todoDelete) editingTodoId = null;
+    saveTravelTodos();
+    renderTravelStats();
+    show('已删除待办');
+    return;
+  }
   const addAttraction = event.target.closest('[data-add-attraction]');
   if (addAttraction) { openAttractionDialog(null, addAttraction.dataset.addAttraction); return; }
   const openAttraction = event.target.closest('[data-open-attraction]');
