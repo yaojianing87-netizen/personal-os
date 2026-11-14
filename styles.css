@@ -131,3 +131,35 @@
 /* 正在计划面板：待办较多时整张卡片一起变高，不把“添加待办”藏进滚动区 */
 .travel-panel-planning .travel-list{max-height:none}
 .travel-todo-action{white-space:nowrap}
+
+/* ===== 景点卡片：封面照片外显（参考 Travel Wishlist 卡片） ===== */
+.travel-attractions{flex-wrap:nowrap;overflow-x:auto;gap:9px;padding:2px 2px 8px;scrollbar-width:thin}
+.travel-attraction{flex:0 0 auto;width:104px;display:flex;flex-direction:column;align-items:stretch;gap:6px;padding:0;border:0;background:none;border-radius:12px;font-size:11px;text-align:left}
+.travel-attraction:hover{transform:translateY(-2px)}
+.travel-attraction-photo{position:relative;display:grid;place-items:center;width:100%;height:78px;border-radius:12px;overflow:hidden;background:color-mix(in srgb,var(--tone) 22%,var(--paper));border:1px solid color-mix(in srgb,var(--ink) 10%,transparent);box-shadow:0 5px 12px #413a3014}
+.travel-attraction-photo img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block}
+.travel-attraction-photo i{font-style:normal;font-size:20px;color:color-mix(in srgb,var(--tone) 70%,var(--ink));opacity:.8}
+.travel-attraction-count{position:absolute;right:6px;bottom:6px;font:700 9px/1 ui-monospace,monospace;font-style:normal;color:var(--paper);background:#2f2a2699;border-radius:999px;padding:3px 6px;backdrop-filter:blur(4px)}
+.travel-attraction-count[hidden]{display:none}
+.travel-attraction b{font-weight:600;padding:0 2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.travel-attraction-add{flex:0 0 auto;width:104px;height:78px;border-radius:12px;display:grid;place-items:center;text-align:center;line-height:1.4;padding:0 6px;align-self:flex-start}
+
+/* ===== 面板按内容自适应高度：不再强行拉成一样高、不裁切列表、不留大片空白 ===== */
+.travel-stats{align-items:start}
+.travel-panel{min-height:0;gap:12px}
+.travel-list{max-height:none;overflow:visible}
+.travel-place-group{gap:5px}
+.travel-attraction{display:block;width:96px;text-align:left}
+.travel-attraction-photo{display:block;height:68px}
+.travel-attraction-photo i{position:absolute;inset:0;display:grid;place-items:center}
+.travel-attraction b{display:block;margin-top:5px;max-width:100%}
+.travel-attractions{padding:0 2px 4px;align-items:center}
+.travel-attraction-add{width:auto;height:auto;align-self:center;padding:5px 11px;border-radius:999px;display:inline-block}
+@media(max-width:620px){.travel-list{max-height:none}}
+/* ===== 三个面板等高；内容多时只在面板内部滚动 ===== */
+.travel-stats{align-items:stretch}
+.travel-panel{max-height:430px;overflow:hidden}
+.travel-list{flex:1 1 auto;min-height:0;overflow-y:auto;overflow-x:hidden;padding-right:6px;scrollbar-width:thin;scrollbar-color:color-mix(in srgb,var(--ink) 28%,transparent) transparent}
+.travel-list::-webkit-scrollbar{width:6px}
+.travel-list::-webkit-scrollbar-thumb{background:color-mix(in srgb,var(--ink) 25%,transparent);border-radius:6px}
+@media(max-width:900px){.travel-panel{max-height:380px}}

@@ -490,9 +490,14 @@ function renderTravelStats() {
     document.querySelector('#' + status + 'List').innerHTML = places.length
       ? places.map(place => {
         const id = escapeHtml(place.id);
-        const chips = travelAttractions.filter(item => item.destinationId === place.id).map(item =>
-          '<button class="travel-attraction" type="button" data-open-attraction="' + escapeHtml(item.id) + '"><span aria-hidden="true">◉</span>' +
-          escapeHtml(item.name) + '</button>').join('');
+        const chips = travelAttractions.filter(item => item.destinationId === place.id).map(item => {
+          const cached = attractionCoverCache.get(item.id);
+          return '<button class="travel-attraction" type="button" data-open-attraction="' + escapeHtml(item.id) + '" title="' + escapeHtml(item.name) + '">' +
+            '<span class="travel-attraction-photo" data-cover-for="' + escapeHtml(item.id) + '">' +
+            (cached && cached.url ? '<img src="' + cached.url + '" alt="" />' : '<i aria-hidden="true">◉</i>') +
+            '<em class="travel-attraction-count"' + (cached && cached.count > 1 ? '' : ' hidden') + '>' + (cached ? cached.count : 0) + '</em></span>' +
+            '<b>' + escapeHtml(item.name) + '</b></button>';
+        }).join('');
         return '<div class="travel-place-group"><button class="travel-place" type="button" data-focus-destination="' + id + '"><b>' +
           escapeHtml(place.name) + '</b><small>' + escapeHtml(place.country || '未填写国家') + '</small></button>' +
           '<div class="travel-attractions">' + chips + '<button class="travel-attraction-add" type="button" data-add-attraction="' + id +
@@ -501,6 +506,36 @@ function renderTravelStats() {
       : '<p class="travel-list-empty">' + TRAVEL_EMPTY_TEXT[status] + '</p>';
   });
   document.querySelector('#travelEmpty').hidden = travelDestinations.length > 0;
+  hydrateAttractionCovers();
+}
+
+// 景点封面：从 IndexedDB 读取封面照片并显示在卡片上（结果缓存，重复渲染不闪烁）
+const attractionCoverCache = new Map();
+async function hydrateAttractionCovers() {
+  const cards = [...document.querySelectorAll('[data-cover-for]')];
+  for (const card of cards) {
+    const attractionId = card.dataset.coverFor;
+    if (attractionCoverCache.has(attractionId)) continue;
+    const attraction = travelAttractions.find(item => item.id === attractionId);
+    if (!attraction) continue;
+    const photos = await photosForAttraction(attractionId);
+    const cover = photos.find(photo => photo.id === attraction.coverPhotoId) || photos[0];
+    attractionCoverCache.set(attractionId, { url: cover ? URL.createObjectURL(cover.blob) : '', count: photos.length });
+  }
+  document.querySelectorAll('[data-cover-for]').forEach(card => {
+    const info = attractionCoverCache.get(card.dataset.coverFor);
+    if (!info || !info.url || card.querySelector('img')) return;
+    card.querySelector('i')?.remove();
+    card.insertAdjacentHTML('afterbegin', '<img src="' + info.url + '" alt="" />');
+    const badge = card.querySelector('.travel-attraction-count');
+    if (badge) { badge.textContent = String(info.count); badge.hidden = info.count < 2; }
+  });
+}
+
+function forgetAttractionCover(attractionId) {
+  const info = attractionCoverCache.get(attractionId);
+  if (info && info.url) URL.revokeObjectURL(info.url);
+  attractionCoverCache.delete(attractionId);
 }
 
 /* ---------- 每个「正在计划」目的地的独立待办清单 ----------
@@ -681,6 +716,7 @@ let attractionCoverId = null;
 let loadedPhotoIds = [];
 let photoViewerUrl = null;
 let photoDBPromise = null;
+let attractionSession = 0;
 
 function loadAttractions() {
   try {
@@ -805,6 +841,7 @@ async function openAttractionDialog(attractionId = null, destinationId = null) {
     return;
   }
   editingAttractionId = attractionId;
+  attractionSession += 1;
   const attraction = travelAttractions.find(item => item.id === attractionId);
   document.querySelector('#attractionDialogTitle').textContent = attraction ? '景点详情' : '添加景点';
   document.querySelector('#attractionDestination').innerHTML = destinationOptions(attraction ? attraction.destinationId : (destinationId || travelDestinations[0].id));
@@ -830,9 +867,8 @@ async function openAttractionDialog(attractionId = null, destinationId = null) {
 
 async function saveAttraction(event) {
   event.preventDefault();
-  const name = document.querySelector('#attractionName').value.trim();
+  const name = document.querySelector('#attractionName').value.trim() || '未命名景点';
   const destinationId = document.querySelector('#attractionDestination').value;
-  if (!name) { document.querySelector('#attractionName').focus(); return; }
   if (!travelDestinations.some(item => item.id === destinationId)) { show('请先选择所属目的地'); return; }
   const existing = travelAttractions.find(item => item.id === editingAttractionId);
   const record = {
@@ -852,6 +888,7 @@ async function saveAttraction(event) {
   if (existing) travelAttractions = travelAttractions.map(item => (item.id === existing.id ? record : item));
   else travelAttractions.push(record);
   saveAttractions();
+  forgetAttractionCover(record.id);
   loadedPhotoIds = attractionDraftPhotos.map(photo => photo.id);
   document.querySelector('#attractionDialog').close();
   releaseDraftPhotos();
@@ -863,6 +900,7 @@ async function removeAttraction(attractionId) {
   const attraction = travelAttractions.find(item => item.id === attractionId);
   if (!attraction || !confirm('删除景点「' + attraction.name + '」和它的所有照片？此操作无法撤销。')) return;
   await deletePhotosOfAttraction(attractionId);
+  forgetAttractionCover(attractionId);
   travelAttractions = travelAttractions.filter(item => item.id !== attractionId);
   saveAttractions();
   renderTravelStats();
@@ -872,7 +910,7 @@ async function removeAttraction(attractionId) {
 // 删除目的地时，一并清理它下面的景点和照片
 async function removeDestinationCascade(destinationId) {
   const attractions = travelAttractions.filter(item => item.destinationId === destinationId);
-  for (const attraction of attractions) await deletePhotosOfAttraction(attraction.id);
+  for (const attraction of attractions) { await deletePhotosOfAttraction(attraction.id); forgetAttractionCover(attraction.id); }
   travelAttractions = travelAttractions.filter(item => item.destinationId !== destinationId);
   saveAttractions();
   travelTodos = travelTodos.filter(item => item.destinationId !== destinationId);
@@ -883,8 +921,10 @@ document.querySelector('#addAttraction').addEventListener('click', () => openAtt
 document.querySelector('#attractionPhotos').addEventListener('change', async event => {
   const files = [...event.target.files].filter(file => /^image\/(jpeg|png|webp)$/.test(file.type));
   if (!files.length) return;
+  const session = attractionSession;
   for (const file of files) {
     const blob = await preparePhoto(file);
+    if (session !== attractionSession) return; // 中途取消了，丢弃还没处理完的照片
     attractionDraftPhotos.push({ id: newId(), blob, url: URL.createObjectURL(blob), isNew: true });
   }
   if (!attractionCoverId && attractionDraftPhotos.length) attractionCoverId = attractionDraftPhotos[0].id;
@@ -921,6 +961,10 @@ document.querySelector('#photoViewer').addEventListener('click', event => {
   if (event.target === event.currentTarget) event.currentTarget.close();
 });
 document.querySelector('#attractionForm').addEventListener('submit', saveAttraction);
+document.querySelector('#attractionDialog').addEventListener('close', () => {
+  attractionSession += 1; // Esc、点空白处、取消、保存：只要关闭就结束本次编辑
+  releaseDraftPhotos();
+});
 document.querySelector('#deleteAttraction').addEventListener('click', async () => {
   if (!editingAttractionId) return;
   await removeAttraction(editingAttractionId);
