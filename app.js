@@ -323,6 +323,33 @@ function renderCalendar() {
     cells.push('<div class="calendar-day ' + (isToday ? 'today ' : '') + (entries.length ? 'has-note' : '') + '"><button class="calendar-date-button" type="button" data-calendar-date="' + date + '" aria-label="' + formatCalendarDate(date) + (entries.length ? '，已有 ' + entries.length + ' 项日程' : '，新建日程') + '"><b>' + day + '</b><i>＋</i></button><div class="calendar-entry-list">' + entryButtons + more + '</div></div>');
   }
   grid.innerHTML = cells.join('');
+  renderAgenda();
+}
+
+// 「接下来」：读取日历里今天的日程，按时间从早到晚排列（数据来自日历模块）
+function renderAgenda() {
+  const list = document.querySelector('#agendaList');
+  if (!list) return;
+  const today = toDateKey(new Date());
+  const tones = ['blue', 'peach', 'mint'];
+  const periodLabel = time => {
+    if (!time) return '';
+    const hour = Number(time.split(':')[0]);
+    return hour < 12 ? '上午' : hour < 18 ? '下午' : '晚上';
+  };
+  const entries = [...(calendarEntries[today] || [])]
+    .sort((a, b) => (a.time || '99:99').localeCompare(b.time || '99:99'));
+  if (!entries.length) {
+    list.innerHTML = '<p class="agenda-empty">今天还没有日程。<br>点右上角「查看日历」添加一个吧。</p>';
+    return;
+  }
+  list.innerHTML = entries.map((entry, index) => {
+    const label = entry.title || entry.note;
+    const detail = entry.title ? entry.note : '';
+    return '<button class="agenda-item" type="button" data-agenda-entry-id="' + escapeHtml(entry.id) + '" aria-label="查看今天的日程：' + escapeHtml(label) + '">' +
+      '<time><b>' + (entry.time || '全天') + '</b><small>' + (periodLabel(entry.time) || '今天') + '</small></time>' +
+      '<span class="line ' + tones[index % 3] + '"></span><div><b>' + escapeHtml(label) + '</b><p>' + escapeHtml(detail) + '</p></div></button>';
+  }).join('');
 }
 
 function changeCalendarMonth(delta) {
@@ -1114,6 +1141,7 @@ document.addEventListener('click', event => {
     document.querySelectorAll('.page').forEach(page => page.classList.remove('active'));
     document.querySelector('#' + nav.dataset.page).classList.add('active');
     if (nav.dataset.page === 'travel') openTravelPage();
+    if (nav.dataset.page === 'dashboard') renderAgenda();
     if (nav.dataset.page === 'focusmode') fmRender();
     return;
   }
@@ -1147,6 +1175,12 @@ document.addEventListener('click', event => {
     const editing = dashboard.classList.toggle('is-editing');
     event.target.setAttribute('aria-pressed', String(editing));
     show(editing ? '已进入编辑模式；再次点击即可退出' : '已退出编辑模式');
+  }
+
+  const agendaItem = event.target.closest('[data-agenda-entry-id]');
+  if (agendaItem) {
+    openCalendarNote(toDateKey(new Date()), agendaItem.dataset.agendaEntryId || null);
+    return;
   }
 
   const calendarDay = event.target.closest('[data-calendar-date]');

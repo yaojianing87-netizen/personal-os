@@ -281,3 +281,8 @@
 .priority-medium{background:#F4DEB7;color:#6B5320}
 .task-dialog .task-personal{display:flex;align-items:center;gap:8px;font-size:12px;font-weight:700;margin-top:2px;cursor:pointer}
 .task-dialog .task-personal input{width:auto;margin:0;accent-color:var(--ink)}
+
+/* 「接下来」：空状态 + 可点击的日程行（格式与原设计一致） */
+.agenda-empty{margin:26px 2px 0;padding:22px 14px;text-align:center;font-size:12px;line-height:1.7;color:var(--muted);border:1px dashed color-mix(in srgb,var(--ink) 20%,transparent);border-radius:14px}
+.agenda-list .agenda-item{border:0;background:none;font:inherit;color:inherit;text-align:left;width:100%;cursor:pointer;border-radius:10px;padding:6px 4px;transition:background .16s}
+.agenda-list .agenda-item:hover{background:color-mix(in srgb,var(--card) 55%,transparent)}
