@@ -77,27 +77,75 @@ function saveCalendarEntries() {
   localStorage.setItem('atelier-calendar-notes', JSON.stringify(calendarEntries));
 }
 
+// 优先级：HIGH > MEDIUM > LOW。PERSONAL 是“类别”，和优先级分开保存（旧数据里的 PERSONAL 优先级会迁移成类别）。
+const TASK_PRIORITY_RANK = { HIGH: 0, MEDIUM: 1, LOW: 2 };
+const PINYIN_BOUNDARIES = [['A', '阿'], ['B', '芭'], ['C', '擦'], ['D', '搭'], ['E', '蛾'], ['F', '发'], ['G', '噶'], ['H', '哈'], ['J', '击'], ['K', '喀'], ['L', '垃'], ['M', '妈'], ['N', '拿'], ['O', '哦'], ['P', '啪'], ['Q', '期'], ['R', '然'], ['S', '撒'], ['T', '塌'], ['W', '挖'], ['X', '昔'], ['Y', '压'], ['Z', '匝']];
+const pinyinCollator = (() => {
+  try {
+    const collator = new Intl.Collator('zh-Hans-CN-u-co-pinyin');
+    return /^zh/i.test(collator.resolvedOptions().locale) ? collator : null;
+  } catch { return null; }
+})();
+
+// 任务名第一个字的首字母：英文取字母；中文取拼音首字母；其他符号/数字排在字母之后
+function taskInitial(title) {
+  const first = [...String(title || '').trim()][0];
+  if (!first) return '~';
+  if (/[A-Za-z]/.test(first)) return first.toUpperCase();
+  if (/[\u3400-\u9fff]/.test(first) && pinyinCollator) {
+    let letter = 'A';
+    for (const [initial, boundary] of PINYIN_BOUNDARIES) {
+      if (pinyinCollator.compare(first, boundary) >= 0) letter = initial; else break;
+    }
+    return letter;
+  }
+  return '~';
+}
+
+function compareTasks(a, b) {
+  const rank = (TASK_PRIORITY_RANK[a.priority] ?? 3) - (TASK_PRIORITY_RANK[b.priority] ?? 3);
+  if (rank) return rank;
+  const initialA = taskInitial(a.title);
+  const initialB = taskInitial(b.title);
+  if (initialA !== initialB) return initialA < initialB ? -1 : 1;
+  return (a.seq ?? 0) - (b.seq ?? 0); // 首字母相同：保持原来的先后顺序
+}
+
+// 直接整理 tasks 这份数据本身（任务页、首页、专注模式读到的都是排好序的）
+function sortTasks() {
+  tasks.sort(compareTasks);
+}
+
+function normalizeTask(task, index) {
+  const legacyPersonal = task.priority === 'PERSONAL';
+  return {
+    id: task.id || newId(),
+    title: task.title,
+    priority: TASK_PRIORITY_RANK[task.priority] !== undefined ? task.priority : (legacyPersonal ? 'MEDIUM' : 'LOW'),
+    category: task.category === 'PERSONAL' || legacyPersonal ? 'PERSONAL' : '',
+    completed: Boolean(task.completed),
+    seq: Number.isFinite(Number(task.seq)) ? Number(task.seq) : index
+  };
+}
+
 function loadTasks() {
   const defaults = [
     { id: 'starter-1', title: '整理灵感收集箱', priority: 'LOW', completed: true },
     { id: 'starter-2', title: '完成设计探索', priority: 'HIGH', completed: false },
     { id: 'starter-3', title: '给妈妈打电话', priority: 'PERSONAL', completed: false }
   ];
+  let list;
   try {
     const saved = JSON.parse(localStorage.getItem('atelier-tasks') || 'null');
-    if (!Array.isArray(saved)) return defaults;
-    return saved.filter(task => task && typeof task.title === 'string').map(task => ({
-      id: task.id || newId(),
-      title: task.title,
-      priority: ['LOW', 'HIGH', 'PERSONAL'].includes(task.priority) ? task.priority : 'LOW',
-      completed: Boolean(task.completed)
-    }));
+    list = Array.isArray(saved) ? saved.filter(task => task && typeof task.title === 'string') : defaults;
   } catch {
-    return defaults;
+    list = defaults;
   }
+  return list.map(normalizeTask).sort(compareTasks);
 }
 
 function saveTasks() {
+  sortTasks();
   localStorage.setItem('atelier-tasks', JSON.stringify(tasks));
 }
 
@@ -302,14 +350,16 @@ function escapeHtml(value) {
 }
 
 function taskMarkup(task) {
-  return '<article class="task ' + (task.completed ? 'done' : '') + '" data-task-id="' + task.id + '"><label class="task-check"><input type="checkbox" data-task-toggle ' + (task.completed ? 'checked' : '') + ' aria-label="标记“' + escapeHtml(task.title) + '”完成"><span></span></label><button class="task-title" type="button" data-edit-task>' + escapeHtml(task.title) + '</button><button class="task-priority priority-' + task.priority.toLowerCase() + '" type="button" data-edit-task aria-label="编辑“' + escapeHtml(task.title) + '”的优先级">' + task.priority + '</button><button class="task-edit" type="button" data-edit-task aria-label="编辑“' + escapeHtml(task.title) + '”">编辑</button></article>';
+  return '<article class="task ' + (task.completed ? 'done' : '') + '" data-task-id="' + task.id + '"><label class="task-check"><input type="checkbox" data-task-toggle ' + (task.completed ? 'checked' : '') + ' aria-label="标记“' + escapeHtml(task.title) + '”完成"><span></span></label><button class="task-title" type="button" data-edit-task>' + escapeHtml(task.title) + '</button><span class="task-badges"><button class="task-priority priority-' + task.priority.toLowerCase() + '" type="button" data-edit-task aria-label="编辑“' + escapeHtml(task.title) + '”的优先级">' + task.priority + '</button>' + (task.category === 'PERSONAL' ? '<button class="task-priority priority-personal" type="button" data-edit-task aria-label="编辑“' + escapeHtml(task.title) + '”的类别">PERSONAL</button>' : '') + '</span><button class="task-edit" type="button" data-edit-task aria-label="编辑“' + escapeHtml(task.title) + '”">编辑</button></article>';
 }
 
 function renderTasks() {
-  const orderedTasks = [...tasks].sort((a, b) => Number(a.completed) - Number(b.completed));
+  sortTasks();
+  const orderedTasks = tasks;
   document.querySelector('#taskList').innerHTML = orderedTasks.slice(0, 4).map(taskMarkup).join('') || '<p class="tasks-empty">还没有任务。</p>';
   document.querySelector('#tasksPageList').innerHTML = orderedTasks.map(taskMarkup).join('') || '<p class="tasks-empty">还没有任务。点击“新建任务”开始吧。</p>';
   updateTaskCount();
+  if (typeof fmRenderTask === 'function') fmRenderTask();
 }
 
 function updateTaskCount() {
@@ -325,6 +375,7 @@ function openTaskDialog(taskId = null) {
   document.querySelector('#taskDialogTitle').textContent = task ? '编辑任务' : '新建任务';
   document.querySelector('#taskTitleInput').value = task ? task.title : '';
   document.querySelector('#taskPriorityInput').value = task ? task.priority : 'LOW';
+  document.querySelector('#taskPersonalInput').checked = Boolean(task && task.category === 'PERSONAL');
   document.querySelector('#deleteTask').hidden = !task;
   document.querySelector('#taskDialog').showModal();
   document.querySelector('#taskTitleInput').focus();
@@ -1062,6 +1113,7 @@ document.addEventListener('click', event => {
     document.querySelectorAll('.page').forEach(page => page.classList.remove('active'));
     document.querySelector('#' + nav.dataset.page).classList.add('active');
     if (nav.dataset.page === 'travel') openTravelPage();
+    if (nav.dataset.page === 'focusmode') fmRender();
     return;
   }
 
@@ -1211,12 +1263,14 @@ document.querySelector('#taskForm').addEventListener('submit', event => {
     return;
   }
   const priority = document.querySelector('#taskPriorityInput').value;
+  const category = document.querySelector('#taskPersonalInput').checked ? 'PERSONAL' : '';
   const existing = tasks.find(task => task.id === editingTaskId);
   if (existing) {
     existing.title = title;
     existing.priority = priority;
+    existing.category = category;
   } else {
-    tasks.push({ id: newId(), title, priority, completed: false });
+    tasks.push({ id: newId(), title, priority, category, completed: false, seq: Math.max(-1, ...tasks.map(task => task.seq)) + 1 });
   }
   saveTasks();
   renderTasks();
@@ -1320,6 +1374,370 @@ document.querySelector('#focusProgress').addEventListener('input', event => {
 });
 applyFocus();
 
+/* ---------- 专注模式 ----------
+   计时器用“结束时间戳”计算剩余时间：切到别的页面、浏览器后台降频、刷新页面都不会走偏。
+   只有完整走完的专注才会写入记录；暂停不算时间；重置会放弃本次，不计入统计。
+   记录/设置/计时器状态都存在 localStorage；成就由记录数量实时计算。 */
+const FM_SESSIONS_KEY = 'atelier-focus-sessions';
+const FM_TIMER_KEY = 'atelier-focus-timer';
+const FM_SETTINGS_KEY = 'atelier-focus-settings';
+const FM_MODES = { pomodoro: { label: 'Pomodoro', minutes: 25 }, deep: { label: 'Deep Work', minutes: 50 }, custom: { label: 'Custom', minutes: 30 } };
+const FM_RING = 2 * Math.PI * 140;
+const FM_ICONS = {
+  play: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4.5v15l12-7.5z" fill="currentColor"/></svg>',
+  pause: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 5h3.5v14H7zM13.5 5H17v14h-3.5z" fill="currentColor"/></svg>',
+  sparkle: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2l2.2 7.8L22 12l-7.8 2.2L12 22l-2.2-7.8L2 12l7.8-2.2z" fill="currentColor"/></svg>',
+  pencil: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20l1-4.2L16.3 4.5a2.1 2.1 0 013 3L8 18.8zM14.5 6.3l3.2 3.2" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+  clock: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5" fill="none" stroke="currentColor" stroke-width="1.7"/><path d="M12 7.5V12l3 2" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>',
+  plant: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21v-8" stroke="#6E9A6C" stroke-width="2" stroke-linecap="round" fill="none"/><path d="M12 13c0-4-3-6.5-7.5-6.5C4.5 10.5 7 13 12 13zM12 15c0-3.4 2.4-5.8 7-5.8 0 3.6-2.4 5.8-7 5.8z" fill="#7FAE7C"/></svg>',
+  star: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.8l2.7 5.8 6.3.7-4.7 4.3 1.3 6.2L12 16.6 6.4 19.8l1.3-6.2L3 9.3l6.3-.7z" fill="#EFB94A"/></svg>',
+  crown: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 8.5l4.6 4 4.4-7 4.4 7 4.6-4L19.5 19h-15z" fill="#EDB547"/><rect x="4.5" y="19.5" width="15" height="1.8" rx=".9" fill="#E3A63A"/></svg>',
+  botanical: '<svg viewBox="0 0 120 150" aria-hidden="true"><g fill="none" stroke="#B88F98" stroke-width="1.4" stroke-linecap="round"><path d="M62 148C60 112 66 84 80 52"/><path d="M62 120C48 112 38 100 34 84"/><path d="M64 100C80 92 92 80 96 64"/><path d="M70 78C60 68 52 58 50 44"/><path d="M76 62C88 56 98 46 102 32"/></g><g fill="#D8B2BA" opacity=".85"><circle cx="80" cy="50" r="5"/><circle cx="74" cy="44" r="4"/><circle cx="86" cy="42" r="4.5"/><circle cx="102" cy="30" r="5"/><circle cx="96" cy="24" r="3.6"/><circle cx="108" cy="26" r="3.6"/><circle cx="50" cy="42" r="4.6"/><circle cx="44" cy="48" r="3.6"/><circle cx="34" cy="82" r="4.2"/><circle cx="96" cy="62" r="4.4"/><circle cx="90" cy="68" r="3.4"/></g><g fill="#C9A4AB" opacity=".7"><ellipse cx="42" cy="104" rx="7" ry="3.6" transform="rotate(-35 42 104)"/><ellipse cx="86" cy="104" rx="7" ry="3.6" transform="rotate(30 86 104)"/><ellipse cx="54" cy="130" rx="6" ry="3.2" transform="rotate(-30 54 130)"/></g></svg>'
+};
+const FM_ACHIEVEMENTS = [
+  { id: 'beginner', name: 'Beginner', need: 1, icon: 'plant', tone: 'green' },
+  { id: 'consistent', name: 'Consistent', need: 5, icon: 'star', tone: 'yellow' },
+  { id: 'master', name: 'Focus Master', need: 25, icon: 'crown', tone: 'beige' }
+];
+
+function fmReadJson(key, fallback) {
+  try { const value = JSON.parse(localStorage.getItem(key)); return value === null || value === undefined ? fallback : value; } catch { return fallback; }
+}
+function fmClampMinutes(value, fallback) {
+  const number = Math.round(Number(value));
+  return Number.isFinite(number) && number >= 1 && number <= 240 ? number : fallback;
+}
+function loadFmSessions() {
+  const saved = fmReadJson(FM_SESSIONS_KEY, []);
+  if (!Array.isArray(saved)) return [];
+  return saved
+    .filter(item => item && typeof item === 'object' && Number.isFinite(Date.parse(item.completedAt)) && Number(item.actualSec) > 0)
+    .map(item => ({
+      id: item.id || newId(),
+      taskId: typeof item.taskId === 'string' ? item.taskId : null,
+      taskTitle: typeof item.taskTitle === 'string' ? item.taskTitle : '',
+      mode: FM_MODES[item.mode] ? item.mode : 'custom',
+      plannedMin: Number(item.plannedMin) || Math.round(Number(item.actualSec) / 60),
+      actualSec: Math.round(Number(item.actualSec)),
+      startedAt: typeof item.startedAt === 'string' ? item.startedAt : item.completedAt,
+      completedAt: item.completedAt
+    }));
+}
+function loadFmSettings() {
+  const saved = fmReadJson(FM_SETTINGS_KEY, {});
+  return {
+    mode: saved && FM_MODES[saved.mode] ? saved.mode : 'pomodoro',
+    customMin: fmClampMinutes(saved && saved.customMin, 30),
+    taskId: saved && typeof saved.taskId === 'string' ? saved.taskId : null
+  };
+}
+function loadFmTimer() {
+  const idle = { status: 'idle', durationSec: 0, endsAt: null, remainingSec: 0, taskId: null, taskTitle: '', mode: 'pomodoro', startedAt: null };
+  const saved = fmReadJson(FM_TIMER_KEY, null);
+  if (!saved || typeof saved !== 'object') return idle;
+  const duration = Math.round(Number(saved.durationSec));
+  if (!(duration > 0)) return idle;
+  const base = { ...idle, durationSec: duration, taskId: typeof saved.taskId === 'string' ? saved.taskId : null, taskTitle: typeof saved.taskTitle === 'string' ? saved.taskTitle : '', mode: FM_MODES[saved.mode] ? saved.mode : 'custom', startedAt: typeof saved.startedAt === 'string' ? saved.startedAt : null };
+  if (saved.status === 'running' && Number.isFinite(Number(saved.endsAt))) return { ...base, status: 'running', endsAt: Number(saved.endsAt) };
+  if (saved.status === 'paused' && Number(saved.remainingSec) > 0) return { ...base, status: 'paused', remainingSec: Math.min(duration, Math.round(Number(saved.remainingSec))) };
+  return idle;
+}
+
+let fmSessions = loadFmSessions();
+let fmSettings = loadFmSettings();
+let fmTimer = loadFmTimer();
+
+function fmSave() {
+  localStorage.setItem(FM_SESSIONS_KEY, JSON.stringify(fmSessions));
+  localStorage.setItem(FM_SETTINGS_KEY, JSON.stringify(fmSettings));
+  localStorage.setItem(FM_TIMER_KEY, JSON.stringify(fmTimer));
+}
+function fmMinutes() { return fmSettings.mode === 'custom' ? fmSettings.customMin : FM_MODES[fmSettings.mode].minutes; }
+function fmActive() { return fmTimer.status !== 'idle'; }
+function fmDuration() { return fmActive() ? fmTimer.durationSec : fmMinutes() * 60; }
+function fmRemaining(now = Date.now()) {
+  if (fmTimer.status === 'running') return Math.max(0, Math.ceil((fmTimer.endsAt - now) / 1000));
+  if (fmTimer.status === 'paused') return fmTimer.remainingSec;
+  return fmMinutes() * 60;
+}
+function fmClock(seconds) {
+  return String(Math.floor(seconds / 60)).padStart(2, '0') + ':' + String(seconds % 60).padStart(2, '0');
+}
+function fmFormatTotal(seconds) {
+  if (seconds <= 0) return '0';
+  if (seconds < 3600) return Math.max(1, Math.round(seconds / 60)) + 'm';
+  return (+(seconds / 3600).toFixed(1)) + 'h';
+}
+function fmDayKey(iso) { return toDateKey(new Date(iso)); }
+function fmCurrentTask() {
+  return tasks.find(item => item.id === fmSettings.taskId) || tasks.find(item => !item.completed) || null;
+}
+
+function fmStart() {
+  const task = fmCurrentTask();
+  const duration = fmMinutes() * 60;
+  fmTimer = { status: 'running', durationSec: duration, endsAt: Date.now() + duration * 1000, remainingSec: 0, taskId: task ? task.id : null, taskTitle: task ? task.title : '', mode: fmSettings.mode, startedAt: new Date().toISOString() };
+  fmSave();
+  fmRender();
+}
+function fmPause() {
+  fmTimer = { ...fmTimer, status: 'paused', remainingSec: Math.max(1, fmRemaining()), endsAt: null };
+  fmSave();
+  fmRender();
+}
+function fmResume() {
+  fmTimer = { ...fmTimer, status: 'running', endsAt: Date.now() + fmTimer.remainingSec * 1000, remainingSec: 0 };
+  fmSave();
+  fmRender();
+}
+function fmReset() {
+  if (fmActive() && !confirm('重置会放弃本次专注，不会计入统计。确定吗？')) return;
+  fmTimer = loadFmTimerIdle();
+  fmSave();
+  fmRender();
+}
+function loadFmTimerIdle() {
+  return { status: 'idle', durationSec: 0, endsAt: null, remainingSec: 0, taskId: null, taskTitle: '', mode: 'pomodoro', startedAt: null };
+}
+// 完整走完才记录；completedAt 取计时器本来的结束时刻（页面关着时结束也能正确记入当天）
+function fmComplete() {
+  const finishedAt = new Date(fmTimer.endsAt || Date.now()).toISOString();
+  const task = tasks.find(item => item.id === fmTimer.taskId);
+  fmSessions.push({ id: newId(), taskId: fmTimer.taskId, taskTitle: task ? task.title : fmTimer.taskTitle, mode: fmTimer.mode, plannedMin: Math.round(fmTimer.durationSec / 60), actualSec: fmTimer.durationSec, startedAt: fmTimer.startedAt || finishedAt, completedAt: finishedAt });
+  const before = fmSessions.length - 1;
+  fmTimer = loadFmTimerIdle();
+  fmSave();
+  const unlocked = FM_ACHIEVEMENTS.find(item => item.need === fmSessions.length && before < item.need);
+  show(unlocked ? '专注完成！解锁成就「' + unlocked.name + '」' : '专注完成！已记录到 Focus History');
+  fmRender();
+}
+function fmTick() {
+  if (fmTimer.status === 'running' && Date.now() >= fmTimer.endsAt) { fmComplete(); return; }
+  if (fmTimer.status === 'running') fmRenderTimer();
+}
+
+function fmRenderTimer() {
+  const total = fmDuration();
+  const left = fmRemaining();
+  const fraction = total > 0 ? Math.min(1, left / total) : 1;
+  const bar = document.querySelector('#fmRingBar');
+  const dot = document.querySelector('#fmRingDot');
+  document.querySelector('#fmTime').textContent = fmClock(left);
+  bar.style.strokeDasharray = String(FM_RING);
+  bar.style.strokeDashoffset = String(FM_RING * (1 - fraction));
+  const angle = fraction * 2 * Math.PI;
+  dot.setAttribute('cx', (160 + 140 * Math.sin(angle)).toFixed(2));
+  dot.setAttribute('cy', (160 - 140 * Math.cos(angle)).toFixed(2));
+  const start = document.querySelector('#fmStart');
+  const label = fmTimer.status === 'running' ? 'Pause' : fmTimer.status === 'paused' ? 'Resume' : 'Start Focus';
+  const icon = fmTimer.status === 'running' ? FM_ICONS.pause : FM_ICONS.play;
+  const markup = '<span class="fm-ico">' + icon + '</span>' + label;
+  if (start.dataset.state !== fmTimer.status) { start.innerHTML = markup; start.dataset.state = fmTimer.status; }
+  document.querySelector('#fmReset').hidden = !fmActive();
+  document.querySelector('#fmRingDot').style.display = left > 0 ? '' : 'none';
+  document.querySelectorAll('[data-fm-mode]').forEach(pill => {
+    const selected = pill.dataset.fmMode === fmSettings.mode;
+    pill.classList.toggle('is-selected', selected);
+    pill.setAttribute('aria-checked', String(selected));
+    pill.classList.toggle('is-locked', fmActive());
+  });
+  document.querySelector('#fmLockHint').hidden = !fmActive();
+  const input = document.querySelector('#fmCustomInput');
+  input.disabled = fmActive();
+  if (document.activeElement !== input) input.value = String(fmSettings.customMin);
+  document.querySelector('#fmCustomSmall').textContent = 'Set Time';
+  const badge = document.querySelector('#fmNavBadge');
+  badge.hidden = !fmActive();
+  badge.textContent = fmActive() ? fmClock(left) : '';
+}
+
+function fmRenderTask() {
+  const box = document.querySelector('#fmTaskCard');
+  if (!box) return;
+  const task = fmCurrentTask();
+  const title = '<h2 class="fm-card-title"><span class="fm-ico fm-spark">' + FM_ICONS.sparkle + '</span>Current Task</h2>';
+  const row = task
+    ? '<div class="fm-task-box' + (task.completed ? ' is-done' : '') + '"><button type="button" class="fm-task-check" data-fm-toggle-task aria-pressed="' + task.completed + '" aria-label="' + (task.completed ? '取消完成：' : '标记完成：') + escapeHtml(task.title) + '"></button><span class="fm-task-name">' + escapeHtml(task.title) + '</span><button type="button" class="fm-edit" data-fm-edit aria-label="更换任务和专注时长"><span class="fm-ico">' + FM_ICONS.pencil + '</span></button></div>'
+    : '<div class="fm-task-box fm-task-empty"><span class="fm-task-name">还没有任务可以选择</span><button type="button" class="fm-pill-btn" data-add-task>＋ 新建任务</button></div>';
+  box.innerHTML = title + row +
+    '<button type="button" class="fm-time-row" data-fm-edit><span class="fm-ico">' + FM_ICONS.clock + '</span>Time: ' + fmMinutes() + ' min</button>' +
+    '<div class="fm-quote"><p>“Small steps lead to big changes.”</p><span class="fm-botanical">' + FM_ICONS.botanical + '</span></div>';
+}
+
+function fmRenderHistory() {
+  const totals = new Map();
+  fmSessions.forEach(item => totals.set(fmDayKey(item.completedAt), (totals.get(fmDayKey(item.completedAt)) || 0) + item.actualSec));
+  const days = [];
+  for (let offset = 4; offset >= 0; offset -= 1) {
+    const day = new Date();
+    day.setDate(day.getDate() - offset);
+    days.push({ key: toDateKey(day), date: day, today: offset === 0 });
+  }
+  const peak = Math.max(3 * 3600, ...days.map(day => totals.get(day.key) || 0));
+  const weekday = new Intl.DateTimeFormat('en-US', { weekday: 'short' });
+  document.querySelector('#fmDays').innerHTML = days.map(day => {
+    const seconds = totals.get(day.key) || 0;
+    const percent = seconds ? Math.max(6, Math.round((seconds / peak) * 100)) : 0;
+    const label = String(day.date.getMonth() + 1).padStart(2, '0') + '/' + String(day.date.getDate()).padStart(2, '0');
+    return '<div class="fm-day' + (day.today ? ' is-today' : '') + '"><div class="fm-day-bar" role="img" aria-label="' + label + ' 专注 ' + fmFormatTotal(seconds) + '"><span style="height:' + percent + '%"></span></div><b>' + weekday.format(day.date) + '</b><small>' + label + '</small><strong>' + fmFormatTotal(seconds) + '</strong></div>';
+  }).join('');
+}
+
+function fmRenderAchievements() {
+  const count = fmSessions.length;
+  document.querySelector('#fmBadges').innerHTML = FM_ACHIEVEMENTS.map(item => {
+    const unlocked = count >= item.need;
+    return '<div class="fm-badge' + (unlocked ? ' is-unlocked' : ' is-locked') + '" title="' + (unlocked ? '已解锁' : '进度 ' + count + '/' + item.need) + '"><span class="fm-badge-icon tone-' + item.tone + '">' + FM_ICONS[item.icon] + '</span><b>' + item.name + '</b><small>' + item.need + (item.need === 1 ? ' session' : ' sessions') + '</small>' +
+      (unlocked ? '' : '<em>' + count + '/' + item.need + '</em>') + '</div>';
+  }).join('');
+}
+
+function fmRender() {
+  fmRenderTimer();
+  fmRenderTask();
+  fmRenderHistory();
+  fmRenderAchievements();
+}
+
+/* ----- 弹窗：任务与时长 / 统计 / 全部记录 / 全部成就 ----- */
+function fmOpenTaskDialog() {
+  if (fmActive()) { show('专注进行中，结束或重置后才能更换任务和时长'); return; }
+  const current = fmCurrentTask();
+  const ordered = [...tasks].sort((a, b) => Number(a.completed) - Number(b.completed));
+  const select = document.querySelector('#fmTaskSelect');
+  select.innerHTML = ordered.length
+    ? ordered.map(item => '<option value="' + escapeHtml(item.id) + '"' + (current && item.id === current.id ? ' selected' : '') + '>' + escapeHtml(item.title) + (item.completed ? '（已完成）' : '') + '</option>').join('')
+    : '<option value="">还没有任务，先去「任务」页新建一个</option>';
+  select.disabled = !ordered.length;
+  document.querySelector('#fmTaskMinutes').value = String(fmMinutes());
+  document.querySelector('#fmTaskError').hidden = true;
+  document.querySelector('#fmTaskDialog').showModal();
+  document.querySelector('#fmTaskMinutes').focus();
+}
+function fmSaveTaskDialog(event) {
+  event.preventDefault();
+  const minutes = fmClampMinutes(document.querySelector('#fmTaskMinutes').value, 0);
+  if (!minutes) { document.querySelector('#fmTaskError').hidden = false; return; }
+  const selected = document.querySelector('#fmTaskSelect').value;
+  if (selected) fmSettings.taskId = selected;
+  if (minutes === 25) fmSettings.mode = 'pomodoro';
+  else if (minutes === 50) fmSettings.mode = 'deep';
+  else { fmSettings.mode = 'custom'; fmSettings.customMin = minutes; }
+  fmSave();
+  fmRender();
+  document.querySelector('#fmTaskDialog').close();
+  show('已更新当前任务和专注时长');
+}
+function fmDayLabel(key) {
+  return new Intl.DateTimeFormat('zh-CN', { month: 'long', day: 'numeric', weekday: 'short' }).format(dateFromKey(key));
+}
+function fmStreak() {
+  const days = new Set(fmSessions.map(item => fmDayKey(item.completedAt)));
+  const day = new Date();
+  if (!days.has(toDateKey(day))) day.setDate(day.getDate() - 1);
+  let streak = 0;
+  while (days.has(toDateKey(day))) { streak += 1; day.setDate(day.getDate() - 1); }
+  return streak;
+}
+function fmOpenInfo(kind) {
+  const title = document.querySelector('#fmInfoTitle');
+  const eyebrow = document.querySelector('#fmInfoEyebrow');
+  const body = document.querySelector('#fmInfoBody');
+  const sum = list => list.reduce((all, item) => all + item.actualSec, 0);
+  if (kind === 'stats') {
+    const today = toDateKey(new Date());
+    const weekStart = new Date(); weekStart.setDate(weekStart.getDate() - 6); weekStart.setHours(0, 0, 0, 0);
+    const todayList = fmSessions.filter(item => fmDayKey(item.completedAt) === today);
+    const weekList = fmSessions.filter(item => new Date(item.completedAt) >= weekStart);
+    eyebrow.textContent = 'FOCUS STATS'; title.textContent = 'Focus Stats';
+    const cell = (label, value, note) => '<div class="fm-stat"><small>' + label + '</small><b>' + value + '</b><span>' + note + '</span></div>';
+    body.innerHTML = '<div class="fm-stat-grid">' +
+      cell('Today', fmFormatTotal(sum(todayList)), todayList.length + ' sessions') +
+      cell('Last 7 days', fmFormatTotal(sum(weekList)), weekList.length + ' sessions') +
+      cell('All time', fmFormatTotal(sum(fmSessions)), fmSessions.length + ' sessions') +
+      cell('Streak', fmStreak() + (fmStreak() === 1 ? ' day' : ' days'), '连续有专注记录的天数') + '</div>';
+  } else if (kind === 'history') {
+    eyebrow.textContent = 'FOCUS HISTORY'; title.textContent = 'All Focus History';
+    if (!fmSessions.length) { body.innerHTML = '<p class="fm-info-empty">还没有完成的专注记录。完整完成一次专注后会出现在这里。</p>'; }
+    else {
+      const groups = new Map();
+      [...fmSessions].sort((a, b) => b.completedAt.localeCompare(a.completedAt)).forEach(item => {
+        const key = fmDayKey(item.completedAt);
+        if (!groups.has(key)) groups.set(key, []);
+        groups.get(key).push(item);
+      });
+      body.innerHTML = [...groups.entries()].map(([key, list]) =>
+        '<section class="fm-group"><header><b>' + fmDayLabel(key) + '</b><span>' + fmFormatTotal(sum(list)) + ' · ' + list.length + ' sessions</span></header>' +
+        list.map(item => {
+          const time = new Date(item.completedAt);
+          return '<div class="fm-row"><time>' + String(time.getHours()).padStart(2, '0') + ':' + String(time.getMinutes()).padStart(2, '0') + '</time><span>' + escapeHtml(item.taskTitle || '未选择任务') + '</span><small>' + FM_MODES[item.mode].label + ' · ' + Math.round(item.actualSec / 60) + ' min</small></div>';
+        }).join('') + '</section>').join('');
+    }
+  } else {
+    eyebrow.textContent = 'FOCUS ACHIEVEMENTS'; title.textContent = 'All Achievements';
+    body.innerHTML = FM_ACHIEVEMENTS.map(item => {
+      const done = Math.min(item.need, fmSessions.length);
+      return '<div class="fm-ach-row' + (done >= item.need ? ' is-unlocked' : '') + '"><span class="fm-badge-icon tone-' + item.tone + '">' + FM_ICONS[item.icon] + '</span><div><b>' + item.name + '</b><small>完成 ' + item.need + ' 次完整专注' + (done >= item.need ? ' · 已解锁' : '') + '</small><div class="fm-ach-bar"><span style="width:' + Math.round(done / item.need * 100) + '%"></span></div></div><em>' + done + '/' + item.need + '</em></div>';
+    }).join('');
+  }
+  document.querySelector('#fmInfoDialog').showModal();
+}
+
+function fmSetMode(mode) {
+  if (!FM_MODES[mode] || mode === fmSettings.mode) return;
+  if (fmActive()) { show('专注进行中，结束或重置后才能切换模式'); return; }
+  fmSettings.mode = mode;
+  fmSave();
+  fmRender();
+}
+
+document.querySelector('#fmStart').addEventListener('click', () => {
+  if (fmTimer.status === 'running') fmPause();
+  else if (fmTimer.status === 'paused') fmResume();
+  else fmStart();
+});
+document.querySelector('#fmReset').addEventListener('click', fmReset);
+document.querySelector('#focusmode').addEventListener('click', event => {
+  const mode = event.target.closest('[data-fm-mode]');
+  if (mode) { fmSetMode(mode.dataset.fmMode); if (mode.dataset.fmMode === 'custom' && !fmActive()) document.querySelector('#fmCustomInput').focus(); return; }
+  if (event.target.closest('[data-fm-toggle-task]')) {
+    const task = fmCurrentTask();
+    if (!task) return;
+    task.completed = !task.completed;
+    fmSettings.taskId = task.id;
+    fmSave();
+    saveTasks();
+    renderTasks();
+    return;
+  }
+  if (event.target.closest('[data-fm-edit]')) { fmOpenTaskDialog(); return; }
+  const open = event.target.closest('[data-fm-open]');
+  if (open) fmOpenInfo(open.dataset.fmOpen);
+});
+document.querySelector('#focusmode').addEventListener('keydown', event => {
+  const mode = event.target.closest && event.target.closest('[data-fm-mode]');
+  if (mode && event.target === mode && (event.key === 'Enter' || event.key === ' ')) { event.preventDefault(); fmSetMode(mode.dataset.fmMode); }
+});
+document.querySelector('#fmCustomInput').addEventListener('input', event => {
+  const minutes = fmClampMinutes(event.target.value, 0);
+  if (!minutes || fmActive()) return;
+  fmSettings.customMin = minutes;
+  fmSettings.mode = 'custom';
+  fmSave();
+  fmRenderTimer();
+  fmRenderTask();
+});
+document.querySelector('#fmCustomInput').addEventListener('change', event => {
+  event.target.value = String(fmSettings.customMin);
+});
+document.querySelector('#fmTaskForm').addEventListener('submit', fmSaveTaskDialog);
+['fmTaskClose', 'fmTaskCancel'].forEach(id => document.querySelector('#' + id).addEventListener('click', () => document.querySelector('#fmTaskDialog').close()));
+document.querySelector('#fmInfoClose').addEventListener('click', () => document.querySelector('#fmInfoDialog').close());
+['fmTaskDialog', 'fmInfoDialog'].forEach(id => document.querySelector('#' + id).addEventListener('click', event => {
+  if (event.target === event.currentTarget) event.currentTarget.close();
+}));
+setInterval(fmTick, 250);
+
 function show(message) {
   toast.textContent = message;
   toast.classList.add('show');
@@ -1334,5 +1752,7 @@ renderCalendar();
 renderTasks();
 renderNotes();
 renderTravelStats();
+fmTick();
+fmRender();
 document.querySelector('#dashboard').classList.add('active');
 
