@@ -1,3 +1,13 @@
+/* 任务排序用到的常量：必须放在文件最前面，因为下面马上就会读取任务并排序 */
+const TASK_PRIORITY_RANK = { HIGH: 0, MEDIUM: 1, LOW: 2 };
+const PINYIN_BOUNDARIES = [['A', '阿'], ['B', '芭'], ['C', '擦'], ['D', '搭'], ['E', '蛾'], ['F', '发'], ['G', '噶'], ['H', '哈'], ['J', '击'], ['K', '喀'], ['L', '垃'], ['M', '妈'], ['N', '拿'], ['O', '哦'], ['P', '啪'], ['Q', '期'], ['R', '然'], ['S', '撒'], ['T', '塌'], ['W', '挖'], ['X', '昔'], ['Y', '压'], ['Z', '匝']];
+const pinyinCollator = (() => {
+  try {
+    const collator = new Intl.Collator('zh-Hans-CN-u-co-pinyin');
+    return /^zh/i.test(collator.resolvedOptions().locale) ? collator : null;
+  } catch { return null; }
+})();
+
 const presets = {
   blush: { name: 'Atelier Blush', paper: '#FDF9EE', card: '#FFFDF6', ink: '#33302E', primary: '#CFB7BC', accent: '#99CDD8' },
   mist: { name: 'Misty Studio', paper: '#F8F9F6', card: '#FFFFFF', ink: '#3B4144', primary: '#D6DAEB', accent: '#858479' },
@@ -78,15 +88,6 @@ function saveCalendarEntries() {
 }
 
 // 优先级：HIGH > MEDIUM > LOW。PERSONAL 是“类别”，和优先级分开保存（旧数据里的 PERSONAL 优先级会迁移成类别）。
-const TASK_PRIORITY_RANK = { HIGH: 0, MEDIUM: 1, LOW: 2 };
-const PINYIN_BOUNDARIES = [['A', '阿'], ['B', '芭'], ['C', '擦'], ['D', '搭'], ['E', '蛾'], ['F', '发'], ['G', '噶'], ['H', '哈'], ['J', '击'], ['K', '喀'], ['L', '垃'], ['M', '妈'], ['N', '拿'], ['O', '哦'], ['P', '啪'], ['Q', '期'], ['R', '然'], ['S', '撒'], ['T', '塌'], ['W', '挖'], ['X', '昔'], ['Y', '压'], ['Z', '匝']];
-const pinyinCollator = (() => {
-  try {
-    const collator = new Intl.Collator('zh-Hans-CN-u-co-pinyin');
-    return /^zh/i.test(collator.resolvedOptions().locale) ? collator : null;
-  } catch { return null; }
-})();
-
 // 任务名第一个字的首字母：英文取字母；中文取拼音首字母；其他符号/数字排在字母之后
 function taskInitial(title) {
   const first = [...String(title || '').trim()][0];
@@ -350,7 +351,7 @@ function escapeHtml(value) {
 }
 
 function taskMarkup(task) {
-  return '<article class="task ' + (task.completed ? 'done' : '') + '" data-task-id="' + task.id + '"><label class="task-check"><input type="checkbox" data-task-toggle ' + (task.completed ? 'checked' : '') + ' aria-label="标记“' + escapeHtml(task.title) + '”完成"><span></span></label><button class="task-title" type="button" data-edit-task>' + escapeHtml(task.title) + '</button><span class="task-badges"><button class="task-priority priority-' + task.priority.toLowerCase() + '" type="button" data-edit-task aria-label="编辑“' + escapeHtml(task.title) + '”的优先级">' + task.priority + '</button>' + (task.category === 'PERSONAL' ? '<button class="task-priority priority-personal" type="button" data-edit-task aria-label="编辑“' + escapeHtml(task.title) + '”的类别">PERSONAL</button>' : '') + '</span><button class="task-edit" type="button" data-edit-task aria-label="编辑“' + escapeHtml(task.title) + '”">编辑</button></article>';
+  return '<article class="task ' + (task.completed ? 'done' : '') + '" data-task-id="' + task.id + '"><label class="task-check"><input type="checkbox" data-task-toggle ' + (task.completed ? 'checked' : '') + ' aria-label="标记“' + escapeHtml(task.title) + '”完成"><span></span></label><button class="task-title" type="button" data-edit-task>' + escapeHtml(task.title) + '</button><div class="task-badges"><button class="task-priority priority-' + task.priority.toLowerCase() + '" type="button" data-edit-task aria-label="编辑“' + escapeHtml(task.title) + '”的优先级">' + task.priority + '</button>' + (task.category === 'PERSONAL' ? '<button class="task-priority priority-personal" type="button" data-edit-task aria-label="编辑“' + escapeHtml(task.title) + '”的类别">PERSONAL</button>' : '') + '</div><button class="task-edit" type="button" data-edit-task aria-label="编辑“' + escapeHtml(task.title) + '”">编辑</button></article>';
 }
 
 function renderTasks() {

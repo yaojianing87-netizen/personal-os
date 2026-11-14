@@ -277,7 +277,7 @@
 @media(max-width:620px){.fm-page{padding:0 14px 32px}.fm-head{padding:20px 0 14px;flex-wrap:wrap}.fm-card{padding:20px 18px;border-radius:22px}.fm-modes{gap:8px}.fm-mode{flex:1 1 100%;max-width:none}.fm-quote{padding:22px 96px 22px 18px}.fm-botanical{width:92px;height:116px}.fm-days{gap:4px;padding:0}.fm-task-box{padding:16px}}
 
 /* 任务：MEDIUM 优先级 + 独立的 PERSONAL 类别标签 */
-.task-badges{display:flex;gap:4px;align-items:center}
+.task-badges{display:flex;flex-wrap:nowrap;gap:4px;align-items:center;white-space:nowrap}
 .priority-medium{background:#F4DEB7;color:#6B5320}
 .task-dialog .task-personal{display:flex;align-items:center;gap:8px;font-size:12px;font-weight:700;margin-top:2px;cursor:pointer}
 .task-dialog .task-personal input{width:auto;margin:0;accent-color:var(--ink)}
