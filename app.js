@@ -43,6 +43,18 @@ function newId() {
   return typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : String(Date.now()) + Math.random();
 }
 
+function updateDateLine() {
+  const dateLine = document.querySelector('#dateLine');
+  if (!dateLine) return;
+  const parts = new Intl.DateTimeFormat('en-GB', {
+    timeZone: 'Asia/Shanghai',
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long'
+  }).formatToParts(new Date()).reduce((all, part) => ({ ...all, [part.type]: part.value }), {});
+  dateLine.textContent = (parts.weekday + ', ' + parts.day + ' ' + parts.month).toUpperCase();
+}
+
 function loadCalendarEntries() {
   try {
     const saved = JSON.parse(localStorage.getItem('atelier-calendar-notes') || '{}');
@@ -675,6 +687,9 @@ function show(message) {
   toast.classList.add('show');
   setTimeout(() => toast.classList.remove('show'), 1900);
 }
+
+updateDateLine();
+setInterval(updateDateLine, 60000);
 
 apply();
 renderIdeas();
