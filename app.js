@@ -401,19 +401,66 @@ const TRAVEL_STATUS = {
   wishlist: { label: '想去', color: '#C48F9C' },
   planning: { label: '正在计划', color: '#D9A05B' }
 };
+const TRAVEL_BACKUP_KEY = 'atelier-travel-destinations-backup-v1';
+// 仅用于“识别并清理”旧版本内置、并被自动存进浏览器的 7 个示例地点（不会被显示）。
+// 必须 ID、名称、国家、经纬度全部一致才算示例；只要有一项不同就视为用户数据并保留。
+const OLD_SAMPLE_PLACES = [
+  { id: 'travel-tokyo', name: '东京', country: '日本', lat: 35.6762, lon: 139.6503 },
+  { id: 'travel-kyoto', name: '京都', country: '日本', lat: 35.0116, lon: 135.7681 },
+  { id: 'travel-paris', name: '巴黎', country: '法国', lat: 48.8566, lon: 2.3522 },
+  { id: 'travel-santorini', name: '圣托里尼', country: '希腊', lat: 36.3932, lon: 25.4615 },
+  { id: 'travel-new-york', name: '纽约', country: '美国', lat: 40.7128, lon: -74.006 },
+  { id: 'travel-reykjavik', name: '雷克雅未克', country: '冰岛', lat: 64.1466, lon: -21.9426 },
+  { id: 'travel-rome', name: '罗马', country: '意大利', lat: 41.9028, lon: 12.4964 }
+];
 let travelDestinations = loadTravelDestinations();
 let travelMap = null;
 let travelLayer = null;
 let travelSearchResults = [];
 let selectedTravelPlace = null;
 
+// 清理旧的示例地点。安全规则：
+// 1) 先把原始数据原样备份到 TRAVEL_BACKUP_KEY，并读回核对；备份不成功就不清理。
+// 2) 只删除能明确识别的示例；无法判断的记录一律保留。
+// 3) 写回后再读回核对；不一致就把原始数据恢复回去。
+// 手动恢复：localStorage.setItem('atelier-travel-destinations', JSON.parse(localStorage.getItem('atelier-travel-destinations-backup-v1')).raw)
+function removeOldSamplePlaces(raw, saved) {
+  try {
+    if (localStorage.getItem(TRAVEL_BACKUP_KEY) === null) {
+      localStorage.setItem(TRAVEL_BACKUP_KEY, JSON.stringify({ savedAt: new Date().toISOString(), raw }));
+    }
+    const backup = JSON.parse(localStorage.getItem(TRAVEL_BACKUP_KEY));
+    if (!backup || typeof backup.raw !== 'string') return saved;
+    const cleaned = saved.filter(item => !isOldSamplePlace(item));
+    if (cleaned.length === saved.length) return saved;
+    const cleanedText = JSON.stringify(cleaned);
+    localStorage.setItem(TRAVEL_STORAGE_KEY, cleanedText);
+    if (localStorage.getItem(TRAVEL_STORAGE_KEY) !== cleanedText) {
+      localStorage.setItem(TRAVEL_STORAGE_KEY, raw);
+      return saved;
+    }
+    return cleaned;
+  } catch {
+    try { localStorage.setItem(TRAVEL_STORAGE_KEY, raw); } catch { /* 原数据可能本来就没改动 */ }
+    return saved;
+  }
+}
+
+function isOldSamplePlace(item) {
+  return OLD_SAMPLE_PLACES.some(sample => item && item.id === sample.id && item.name === sample.name &&
+    item.country === sample.country && Number(item.lat) === sample.lat && Number(item.lon) === sample.lon);
+}
+
 function loadTravelDestinations() {
   try {
-    const saved = JSON.parse(localStorage.getItem(TRAVEL_STORAGE_KEY) || 'null');
-    if (!Array.isArray(saved)) return [];
+    const raw = localStorage.getItem(TRAVEL_STORAGE_KEY);
+    const parsed = JSON.parse(raw || 'null');
+    if (!Array.isArray(parsed)) return [];
+    const saved = removeOldSamplePlaces(raw, parsed);
     return saved
       .filter(item => item && typeof item.name === 'string' && Number.isFinite(Number(item.lat)) && Number.isFinite(Number(item.lon)))
       .map(item => ({
+        ...item,
         id: item.id || newId(),
         name: item.name,
         country: typeof item.country === 'string' ? item.country : '',
@@ -436,6 +483,7 @@ function renderTravelStats() {
   const countries = new Set(travelDestinations.map(item => (item.country || '').trim().toLowerCase()).filter(Boolean));
   document.querySelector('#wishlistCount').textContent = String(wishlist);
   document.querySelector('#visitedCount').textContent = String(visited);
+  document.querySelector('#planningCount').textContent = String(travelDestinations.filter(item => item.status === 'planning').length);
   document.querySelector('#countryCount').textContent = String(countries.size);
   document.querySelector('#travelEmpty').hidden = travelDestinations.length > 0;
 }
@@ -485,9 +533,8 @@ function openTravelPage() {
       scrollWheelZoom: false,
       worldCopyJump: true
     }).setView([22, 18], 2);
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
-      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>',
-      subdomains: 'abcd',
+    L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> contributors',
       maxZoom: 19
     }).addTo(travelMap);
     travelLayer = L.layerGroup().addTo(travelMap);
