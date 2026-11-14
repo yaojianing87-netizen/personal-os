@@ -275,37 +275,6 @@ function renderCalendar() {
     cells.push('<div class="calendar-day ' + (isToday ? 'today ' : '') + (entries.length ? 'has-note' : '') + '"><button class="calendar-date-button" type="button" data-calendar-date="' + date + '" aria-label="' + formatCalendarDate(date) + (entries.length ? '，已有 ' + entries.length + ' 项日程' : '，新建日程') + '"><b>' + day + '</b><i>＋</i></button><div class="calendar-entry-list">' + entryButtons + more + '</div></div>');
   }
   grid.innerHTML = cells.join('');
-  renderAgenda();
-}
-
-// 「接下来」：读取日历里今天及以后的日程，按日期和时间排序，最多显示 5 条
-function renderAgenda() {
-  const list = document.querySelector('#agendaList');
-  if (!list) return;
-  const today = toDateKey(new Date());
-  const toneClasses = ['blue', 'peach', 'mint'];
-  const periodLabel = time => {
-    if (!time) return '';
-    const hour = Number(time.split(':')[0]);
-    return hour < 12 ? '上午' : hour < 18 ? '下午' : '晚上';
-  };
-  const upcoming = Object.entries(calendarEntries)
-    .filter(([date]) => date >= today)
-    .flatMap(([date, entries]) => entries.map(entry => ({ ...entry, date })))
-    .sort((a, b) => (a.date + (a.time || '99:99')).localeCompare(b.date + (b.time || '99:99')))
-    .slice(0, 5);
-  if (!upcoming.length) {
-    list.innerHTML = '<p class="agenda-empty">今天和之后还没有日程。<br>点右上角「查看日历」添加一个吧。</p>';
-    return;
-  }
-  list.innerHTML = upcoming.map((entry, index) => {
-    const label = entry.title || entry.note;
-    const detail = entry.title && entry.note ? entry.note : '';
-    return '<button class="agenda-item' + (index > 1 ? ' faint' : '') + '" type="button" data-agenda-date="' + entry.date +
-      '" data-agenda-entry-id="' + entry.id + '" aria-label="查看 ' + formatCalendarDate(entry.date) + ' 的日程：' + escapeHtml(label) + '">' +
-      '<time><b>' + (entry.time || '全天') + '</b><small>' + (entry.date === today ? periodLabel(entry.time) || '今天' : formatCalendarDate(entry.date)) + '</small></time>' +
-      '<span class="line ' + toneClasses[index % 3] + '"></span><div><b>' + escapeHtml(label) + '</b><p>' + escapeHtml(detail) + '</p></div></button>';
-  }).join('');
 }
 
 function changeCalendarMonth(delta) {
@@ -736,12 +705,6 @@ document.addEventListener('click', event => {
     show(editing ? '已进入编辑模式；再次点击即可退出' : '已退出编辑模式');
   }
 
-  const agendaItem = event.target.closest('[data-agenda-date]');
-  if (agendaItem) {
-    openCalendarNote(agendaItem.dataset.agendaDate, agendaItem.dataset.agendaEntryId || null);
-    return;
-  }
-
   const calendarDay = event.target.closest('[data-calendar-date]');
   if (calendarDay) {
     openCalendarNote(calendarDay.dataset.calendarDate, calendarDay.dataset.calendarEntryId || null);
@@ -973,50 +936,6 @@ document.querySelector('#wallpaperInput').addEventListener('change', event => {
   };
   reader.readAsDataURL(file);
 });
-
-/* 今日重点：标题、描述可直接编辑，进度可拖动，都会自动保存 */
-const FOCUS_KEY = 'atelier-focus';
-function readFocus() {
-  try {
-    const saved = JSON.parse(localStorage.getItem(FOCUS_KEY) || 'null');
-    if (!saved || typeof saved !== 'object') return null;
-    return {
-      title: typeof saved.title === 'string' ? saved.title : '',
-      desc: typeof saved.desc === 'string' ? saved.desc : '',
-      progress: Math.min(100, Math.max(0, Math.round(Number(saved.progress)) || 0))
-    };
-  } catch {
-    return null;
-  }
-}
-function setFocusProgress(value) {
-  const amount = Math.min(100, Math.max(0, Math.round(Number(value)) || 0));
-  document.querySelector('#focusProgress').value = String(amount);
-  document.querySelector('#focusProgressBar').style.width = amount + '%';
-  document.querySelector('#focusProgressLabel').textContent = amount + '% 完成';
-}
-function saveFocus() {
-  const payload = {
-    title: document.querySelector('#focusTitle').textContent.trim(),
-    desc: document.querySelector('#focusDesc').textContent.trim(),
-    progress: Number(document.querySelector('#focusProgress').value)
-  };
-  localStorage.setItem(FOCUS_KEY, JSON.stringify(payload));
-}
-function applyFocus() {
-  const saved = readFocus();
-  if (saved) {
-    document.querySelector('#focusTitle').textContent = saved.title;
-    document.querySelector('#focusDesc').textContent = saved.desc;
-  }
-  setFocusProgress(saved ? saved.progress : document.querySelector('#focusProgress').value);
-}
-['focusTitle', 'focusDesc'].forEach(id => document.querySelector('#' + id).addEventListener('input', saveFocus));
-document.querySelector('#focusProgress').addEventListener('input', event => {
-  setFocusProgress(event.target.value);
-  saveFocus();
-});
-applyFocus();
 
 function show(message) {
   toast.textContent = message;
