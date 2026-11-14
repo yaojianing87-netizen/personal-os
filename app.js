@@ -416,8 +416,7 @@ const OLD_SAMPLE_PLACES = [
 let travelDestinations = loadTravelDestinations();
 let travelMap = null;
 let travelLayer = null;
-let travelSearchResults = [];
-let selectedTravelPlace = null;
+const travelMarkers = new Map();
 
 // 清理旧的示例地点。安全规则：
 // 1) 先把原始数据原样备份到 TRAVEL_BACKUP_KEY，并读回核对；备份不成功就不清理。
@@ -477,14 +476,22 @@ function saveTravelDestinations() {
   localStorage.setItem(TRAVEL_STORAGE_KEY, JSON.stringify(travelDestinations));
 }
 
+const TRAVEL_EMPTY_TEXT = {
+  wishlist: '还没有想去的地方。<br>添加地点时选择“想去”，它会出现在这里。',
+  visited: '还没有去过的地方。<br>添加地点时选择“已去过”。',
+  planning: '还没有计划中的旅行。<br>添加地点时选择“正在计划”。'
+};
+
+// 三个面板：数量和地点列表都由当前保存的地点实时生成，和地图保持同步
 function renderTravelStats() {
-  const wishlist = travelDestinations.filter(item => item.status === 'wishlist').length;
-  const visited = travelDestinations.filter(item => item.status === 'visited').length;
-  const countries = new Set(travelDestinations.map(item => (item.country || '').trim().toLowerCase()).filter(Boolean));
-  document.querySelector('#wishlistCount').textContent = String(wishlist);
-  document.querySelector('#visitedCount').textContent = String(visited);
-  document.querySelector('#planningCount').textContent = String(travelDestinations.filter(item => item.status === 'planning').length);
-  document.querySelector('#countryCount').textContent = String(countries.size);
+  Object.keys(TRAVEL_EMPTY_TEXT).forEach(status => {
+    const places = travelDestinations.filter(item => item.status === status);
+    document.querySelector('#' + status + 'Count').textContent = String(places.length);
+    document.querySelector('#' + status + 'List').innerHTML = places.length
+      ? places.map(place => '<button class="travel-place" type="button" data-focus-destination="' + escapeHtml(place.id) + '"><b>' +
+        escapeHtml(place.name) + '</b><small>' + escapeHtml(place.country || '未填写国家') + '</small></button>').join('')
+      : '<p class="travel-list-empty">' + TRAVEL_EMPTY_TEXT[status] + '</p>';
+  });
   document.querySelector('#travelEmpty').hidden = travelDestinations.length > 0;
 }
 
@@ -502,11 +509,13 @@ function travelPinIcon(status) {
 function renderTravelMarkers() {
   if (!travelMap || !travelLayer) return;
   travelLayer.clearLayers();
+  travelMarkers.clear();
   travelDestinations.forEach(destination => {
     const marker = L.marker([destination.lat, destination.lon], {
       icon: travelPinIcon(destination.status),
       title: destination.name
     });
+    travelMarkers.set(destination.id, marker);
     marker.bindPopup(
       '<div class="travel-popup"><b>' + escapeHtml(destination.name) + '</b><small>' +
       escapeHtml(destination.country || '未填写国家') + ' · ' +
@@ -545,94 +554,77 @@ function openTravelPage() {
 }
 
 function openTravelDialog(query = '') {
-  selectedTravelPlace = null;
-  travelSearchResults = [];
   document.querySelector('#travelQuery').value = query;
-  document.querySelector('#travelResults').innerHTML = '';
   document.querySelector('#travelSearchStatus').textContent = '';
-  document.querySelector('#saveTravelDestination').disabled = true;
+  document.querySelector('#travelStatusSelect').value = 'wishlist';
+  document.querySelector('#saveTravelDestination').disabled = false;
   document.querySelector('#travelDialog').showModal();
   document.querySelector('#travelQuery').focus();
-  if (query.trim()) searchTravelPlaces(query);
 }
 
-async function searchTravelPlaces(query) {
-  const status = document.querySelector('#travelSearchStatus');
-  const results = document.querySelector('#travelResults');
-  const term = query.trim();
-  selectedTravelPlace = null;
-  travelSearchResults = [];
-  results.innerHTML = '';
-  document.querySelector('#saveTravelDestination').disabled = true;
-  if (!term) {
-    status.textContent = '请输入城市、国家或地区名称。';
-    return;
-  }
-  status.textContent = '正在搜索…';
+// 一步添加：输入地点 → 直接取第一个匹配结果保存，不再需要二次确认
+async function addTravelDestination(event) {
+  if (event) event.preventDefault();
+  const input = document.querySelector('#travelQuery');
+  const statusBox = document.querySelector('#travelSearchStatus');
+  const addButton = document.querySelector('#saveTravelDestination');
+  const term = input.value.trim();
+  if (!term) { statusBox.textContent = '请先输入城市、国家或地区名称。'; input.focus(); return; }
+  statusBox.textContent = '正在查找并添加…';
+  addButton.disabled = true;
   try {
-    const response = await fetch('https://nominatim.openstreetmap.org/search?format=jsonv2&addressdetails=1&limit=6&q=' + encodeURIComponent(term));
-    if (!response.ok) throw new Error('search failed');
-    const data = await response.json();
-    if (!Array.isArray(data) || !data.length) {
-      status.textContent = '没有找到匹配的地点，换一个写法试试。';
+    const response = await fetch('https://nominatim.openstreetmap.org/search?format=jsonv2&addressdetails=1&limit=1&q=' + encodeURIComponent(term));
+    if (!response.ok) throw new Error('geocode failed');
+    const match = (await response.json())[0];
+    const lat = match ? Number(match.lat) : NaN;
+    const lon = match ? Number(match.lon) : NaN;
+    if (!match || !Number.isFinite(lat) || !Number.isFinite(lon)) {
+      statusBox.textContent = '没有找到这个地点，换个写法试试。';
+      addButton.disabled = false;
       return;
     }
-    travelSearchResults = data.map(place => ({
-      name: (place.name || (place.display_name || '').split(',')[0] || '未命名地点').trim(),
-      country: (place.address && place.address.country) || '',
-      lat: Number(place.lat),
-      lon: Number(place.lon),
-      display: place.display_name || ''
-    })).filter(place => Number.isFinite(place.lat) && Number.isFinite(place.lon));
-    status.textContent = '选择一个地点，然后按「添加」。';
-    results.innerHTML = travelSearchResults.map((place, index) =>
-      '<button type="button" class="travel-result" data-travel-result="' + index + '"><b>' + escapeHtml(place.name) + '</b><small>' + escapeHtml(place.display) + '</small></button>'
-    ).join('');
+    const name = (match.name || (match.display_name || '').split(',')[0] || term).trim();
+    const country = (match.address && match.address.country) || '';
+    const duplicate = travelDestinations.find(item =>
+      (item.name.trim().toLowerCase() === name.toLowerCase() && (item.country || '').toLowerCase() === country.toLowerCase()) ||
+      (Math.abs(item.lat - lat) < 0.01 && Math.abs(item.lon - lon) < 0.01));
+    if (duplicate) {
+      statusBox.textContent = '「' + name + '」已经在你的旅行地图里了。';
+      addButton.disabled = false;
+      return;
+    }
+    const statusValue = document.querySelector('#travelStatusSelect').value;
+    const destination = {
+      id: newId(),
+      name,
+      country,
+      lat,
+      lon,
+      status: TRAVEL_STATUS[statusValue] ? statusValue : 'wishlist'
+    };
+    travelDestinations.push(destination);
+    saveTravelDestinations();
+    renderTravelStats();
+    renderTravelMarkers();
+    document.querySelector('#travelDialog').close();
+    show('已添加 ' + name);
+    if (travelMap) { travelMap.setView([lat, lon], 5); const marker = travelMarkers.get(destination.id); if (marker) marker.openPopup(); }
   } catch {
-    status.textContent = '搜索失败，请检查网络后再试。';
+    statusBox.textContent = '查找失败，请检查网络后再试。';
+    addButton.disabled = false;
   }
-}
-
-function addTravelDestination(event) {
-  if (event) event.preventDefault();
-  if (!selectedTravelPlace) {
-    document.querySelector('#travelSearchStatus').textContent = '请先搜索并选择一个地点。';
-    return;
-  }
-  const status = document.querySelector('#travelStatusSelect').value;
-  const destination = {
-    id: newId(),
-    name: selectedTravelPlace.name,
-    country: selectedTravelPlace.country,
-    lat: selectedTravelPlace.lat,
-    lon: selectedTravelPlace.lon,
-    status: TRAVEL_STATUS[status] ? status : 'wishlist'
-  };
-  travelDestinations.push(destination);
-  saveTravelDestinations();
-  renderTravelStats();
-  renderTravelMarkers();
-  document.querySelector('#travelDialog').close();
-  show('已添加 ' + destination.name);
-  if (travelMap) travelMap.setView([destination.lat, destination.lon], 4);
 }
 
 document.querySelector('#addDestination').addEventListener('click', () => openTravelDialog());
 document.querySelector('#addDestinationEmpty').addEventListener('click', () => openTravelDialog());
-document.querySelector('#travelSearchInput').addEventListener('keydown', event => {
-  if (event.key === 'Enter') {
-    event.preventDefault();
-    openTravelDialog(event.target.value);
-  }
-});
-document.querySelector('#travelSearchButton').addEventListener('click', () => {
-  searchTravelPlaces(document.querySelector('#travelQuery').value);
-});
-document.querySelector('#travelQuery').addEventListener('keydown', event => {
-  if (event.key === 'Enter') {
-    event.preventDefault();
-    searchTravelPlaces(event.target.value);
-  }
+document.querySelector('.travel-stats').addEventListener('click', event => {
+  const focus = event.target.closest('[data-focus-destination]');
+  const place = focus && travelDestinations.find(item => item.id === focus.dataset.focusDestination);
+  if (!place || !travelMap) return;
+  travelMap.setView([place.lat, place.lon], 5);
+  const marker = travelMarkers.get(place.id);
+  if (marker) marker.openPopup();
+  document.querySelector('#travelMap').scrollIntoView({ behavior: 'smooth', block: 'center' });
 });
 document.querySelector('#travelForm').addEventListener('submit', addTravelDestination);
 ['closeTravelDialog', 'cancelTravelDialog'].forEach(id => {
@@ -647,16 +639,6 @@ document.addEventListener('click', event => {
     currentFolderId = null;
     document.querySelector('.nav-item[data-page="notes"]').click();
     createNote();
-    return;
-  }
-
-  const travelResult = event.target.closest('[data-travel-result]');
-  if (travelResult) {
-    selectedTravelPlace = travelSearchResults[Number(travelResult.dataset.travelResult)] || null;
-    document.querySelectorAll('.travel-result').forEach(button => {
-      button.classList.toggle('selected', button === travelResult);
-    });
-    document.querySelector('#saveTravelDestination').disabled = !selectedTravelPlace;
     return;
   }
 

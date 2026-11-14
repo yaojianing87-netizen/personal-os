@@ -74,23 +74,26 @@
             <div>
               <p class="eyebrow">TRAVEL MAP</p>
               <h1 class="sr-only">旅行地图</h1>
-              <p class="travel-title">我的旅行地图</p>
-              <p class="travel-sub">收藏想去的地方，计划每一次出发。</p>
+              <p class="travel-title">My Travel Map</p>
+              <p class="travel-sub">Collect places. Plan adventures. Keep memories.</p>
             </div>
             <div class="travel-actions">
-              <label class="travel-search" for="travelSearchInput">
-                <span aria-hidden="true">⌕</span>
-                <input id="travelSearchInput" type="search" placeholder="搜索目的地…" autocomplete="off" />
-              </label>
               <button class="primary-btn" id="addDestination" type="button">＋ 添加地点</button>
             </div>
           </header>
-          <section class="travel-stats" aria-label="旅行统计">
-            <article class="travel-stat"><span class="travel-stat-icon" aria-hidden="true">♡</span><div><b id="wishlistCount">0</b><small>想去的地方</small></div></article>
-            <article class="travel-stat"><span class="travel-stat-icon" aria-hidden="true">✓</span><div><b id="visitedCount">0</b><small>已去过</small></div></article>
-            <article class="travel-stat"><span class="travel-stat-icon" aria-hidden="true">✈</span><div><b id="planningCount">0</b><small>正在计划</small></div></article>
-            <article class="travel-stat"><span class="travel-stat-icon" aria-hidden="true">◎</span><div><b id="countryCount">0</b><small>国家和地区</small></div></article>
-            <div class="travel-legend"><span class="legend-dot visited"></span>已去过<span class="legend-dot wishlist"></span>想去<span class="legend-dot planning"></span>正在计划</div>
+          <section class="travel-stats" aria-label="旅行地点">
+            <article class="travel-panel travel-panel-wishlist">
+              <header class="travel-panel-head"><span class="travel-stat-icon" aria-hidden="true">♡</span><h2>想去的地方</h2><b id="wishlistCount">0</b></header>
+              <div class="travel-list" id="wishlistList"></div>
+            </article>
+            <article class="travel-panel travel-panel-visited">
+              <header class="travel-panel-head"><span class="travel-stat-icon" aria-hidden="true">✓</span><h2>已去过</h2><b id="visitedCount">0</b></header>
+              <div class="travel-list" id="visitedList"></div>
+            </article>
+            <article class="travel-panel travel-panel-planning">
+              <header class="travel-panel-head"><span class="travel-stat-icon" aria-hidden="true">✈</span><h2>正在计划</h2><b id="planningCount">0</b></header>
+              <div class="travel-list" id="planningList"></div>
+            </article>
           </section>
           <section class="travel-map-card" aria-label="世界地图">
             <div class="travel-empty" id="travelEmpty" hidden>
@@ -122,13 +125,9 @@
           <div><p class="eyebrow">TRAVEL DESTINATION</p><h2 id="travelDialogTitle">添加目的地</h2></div>
           <button class="dialog-close" id="closeTravelDialog" type="button" aria-label="关闭">×</button>
         </div>
-        <label for="travelQuery">搜索城市、国家或地区</label>
-        <div class="travel-search-row">
-          <input id="travelQuery" type="search" autocomplete="off" placeholder="例如：Kyoto, Japan" />
-          <button class="outline-btn" id="travelSearchButton" type="button">搜索</button>
-        </div>
+        <label for="travelQuery">输入城市、国家或地区，直接添加</label>
+        <input id="travelQuery" type="search" autocomplete="off" placeholder="例如：Kyoto、Japan、冰岛" />
         <p class="travel-search-status" id="travelSearchStatus" role="status"></p>
-        <div class="travel-results" id="travelResults"></div>
         <label for="travelStatusSelect">旅行状态</label>
         <select id="travelStatusSelect">
           <option value="wishlist">想去</option>
@@ -138,7 +137,7 @@
         <div class="dialog-actions">
           <span></span><span></span>
           <button class="outline-btn" id="cancelTravelDialog" type="button">取消</button>
-          <button class="primary-btn" id="saveTravelDestination" type="submit" disabled>添加</button>
+          <button class="primary-btn" id="saveTravelDestination" type="submit">添加</button>
         </div>
       </form>
     </dialog>
