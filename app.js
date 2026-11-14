@@ -1739,6 +1739,32 @@ document.querySelector('#fmInfoClose').addEventListener('click', () => document.
 }));
 setInterval(fmTick, 250);
 
+/* 左下角的励志短语：可以直接编辑，自动保存 */
+const SIDE_QUOTE_KEY = 'atelier-side-quote';
+const SIDE_QUOTE_DEFAULT = '“Make room for what matters.”';
+function readSideQuote() {
+  try {
+    const saved = localStorage.getItem(SIDE_QUOTE_KEY);
+    return typeof saved === 'string' && saved.trim() ? saved : SIDE_QUOTE_DEFAULT;
+  } catch { return SIDE_QUOTE_DEFAULT; }
+}
+function saveSideQuote() {
+  const box = document.querySelector('#sideQuote');
+  const text = box.innerText.replace(/\n+/g, ' ').trim();
+  try { localStorage.setItem(SIDE_QUOTE_KEY, text || SIDE_QUOTE_DEFAULT); } catch { /* 存不进去也不影响使用 */ }
+}
+document.querySelector('#sideQuote').addEventListener('focus', event => { if (event.target.innerText.trim() === SIDE_QUOTE_DEFAULT) { document.execCommand('selectAll', false, null); } });
+document.querySelector('#sideQuote').addEventListener('input', saveSideQuote);
+document.querySelector('#sideQuote').addEventListener('blur', event => {
+  const box = event.target;
+  box.innerText = box.innerText.replace(/\n+/g, ' ').trim() || SIDE_QUOTE_DEFAULT;
+  saveSideQuote();
+});
+document.querySelector('#sideQuote').addEventListener('keydown', event => {
+  if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); event.target.blur(); }
+});
+document.querySelector('#sideQuote').innerText = readSideQuote();
+
 function show(message) {
   toast.textContent = message;
   toast.classList.add('show');

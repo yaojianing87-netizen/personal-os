@@ -281,3 +281,8 @@
 .priority-medium{background:#F4DEB7;color:#6B5320}
 .task-dialog .task-personal{display:flex;align-items:center;gap:8px;font-size:12px;font-weight:700;margin-top:2px;cursor:pointer}
 .task-dialog .task-personal input{width:auto;margin:0;accent-color:var(--ink)}
+
+/* 左下角励志短语：可编辑 */
+.tiny-quote{outline:0;border-radius:8px;transition:background .16s,box-shadow .16s;cursor:text}
+.tiny-quote:hover{background:color-mix(in srgb,var(--card) 45%,transparent)}
+.tiny-quote:focus{background:color-mix(in srgb,var(--card) 72%,transparent);box-shadow:0 0 0 1px color-mix(in srgb,var(--ink) 18%,transparent)}
