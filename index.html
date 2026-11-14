@@ -13,7 +13,7 @@
     <div class="wallpaper" aria-hidden="true"></div>
     <main class="app-shell">
       <aside class="sidebar">
-        <div class="brand"><span class="brand-mark">AH</span><span>Atelier<br /><i>Hour</i></span></div>
+        <div class="brand"><span class="brand-mark">D</span><span>Diving</span></div>
         <div class="nav-label">MY SPACE</div>
         <nav class="nav">
           <button class="nav-item active" data-page="dashboard" aria-current="page"><span>⌂</span> 今日</button>
@@ -39,13 +39,13 @@
           <section class="mood-strip"><div><span class="sun">☼</span><b>今天，慢一点也没关系。</b><p>给自己留下一段专注而柔软的时间。</p></div><button id="editDashboard">编辑版面 <span>↗</span></button></section>
           <div class="dashboard-grid" id="dashboardGrid">
             <article class="card focus-card" data-module="focus">
-              <div class="card-heading"><span><i class="ink-dot"></i> 今日重点</span><button class="more">•••</button></div>
-              <div class="focus-main"><div class="focus-number">01</div><div><h2>完善 Personal OS 的<br />视觉语言</h2><p>让每一次打开，都成为一段安静的开始。</p><div class="progress"><span style="width:72%"></span></div><small>72% 完成</small></div></div>
+              <div class="card-heading"><span><i class="ink-dot"></i> 今日重点</span></div>
+              <div class="focus-main"><div class="focus-number">01</div><div><h2 id="focusTitle" contenteditable="true" spellcheck="false" aria-label="今日重点标题，可直接编辑">完善 Personal OS 的视觉语言</h2><p id="focusDesc" contenteditable="true" spellcheck="false" aria-label="今日重点描述，可直接编辑">让每一次打开，都成为一段安静的开始。</p><div class="progress"><span id="focusProgressBar" style="width:72%"></span></div><small id="focusProgressLabel">72% 完成</small><input type="range" class="focus-progress" id="focusProgress" min="0" max="100" step="1" value="72" aria-label="今日重点完成度" /></div></div>
               <div class="paper-clip">♡</div>
             </article>
             <article class="card agenda-card" data-module="agenda">
               <div class="card-heading"><span><i class="ink-dot"></i> 接下来</span><button class="text-button" data-page="calendar" type="button">查看日历 →</button></div>
-              <div class="agenda-list"><div class="agenda-item"><time><b>10:30</b><small>上午</small></time><span class="line blue"></span><div><b>深度工作：项目构思</b><p>书桌 · 90 分钟</p></div></div><div class="agenda-item"><time><b>14:00</b><small>下午</small></time><span class="line peach"></span><div><b>散步与灵感采集</b><p>附近的公园</p></div></div><div class="agenda-item faint"><time><b>19:30</b><small>晚上</small></time><span class="line mint"></span><div><b>一周回顾</b><p>30 分钟</p></div></div></div>
+              <div class="agenda-list" id="agendaList"></div></div><div class="agenda-item"><time><b>14:00</b><small>下午</small></time><span class="line peach"></span><div><b>散步与灵感采集</b><p>附近的公园</p></div></div><div class="agenda-item faint"><time><b>19:30</b><small>晚上</small></time><span class="line mint"></span><div><b>一周回顾</b><p>30 分钟</p></div></div></div>
             </article>
             <article class="card tasks-card" data-module="tasks">
               <div class="card-heading"><span> <i class="ink-dot"></i>今日任务 <em id="taskCount">3</em></span><button class="more" data-add-task type="button" aria-label="添加任务">＋</button></div>
