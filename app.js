@@ -9,7 +9,6 @@ const defaults = { preset: 'blush', ...presets.blush, blur: 0, overlay: 70, brig
 const root = document.documentElement;
 const toast = document.querySelector('#toast');
 let state = { ...defaults, ...loadAppearance() };
-let ideas = loadIdeas();
 let calendarEntries = loadCalendarEntries();
 let selectedCalendarDate = toDateKey(new Date());
 let calendarView = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
@@ -298,50 +297,8 @@ function openCalendarNote(date, entryId = null) {
   document.querySelector('#calendarEventTitle').focus();
 }
 
-function loadIdeas() {
-  try {
-    const saved = JSON.parse(localStorage.getItem('atelier-ideas') || '[]');
-    const colors = new Set(['peach', 'mint', 'mist', 'cream']);
-    return Array.isArray(saved) ? saved
-      .filter(note => note && typeof note === 'object' && typeof note.text === 'string')
-      .map(note => ({
-        id: typeof note.id === 'string' && note.id ? note.id : newId(),
-        text: note.text,
-        pinned: Boolean(note.pinned),
-        color: colors.has(note.color) ? note.color : 'peach'
-      })) : [];
-  } catch {
-    return [];
-  }
-}
-
-function saveIdeas() {
-  localStorage.setItem('atelier-ideas', JSON.stringify(ideas));
-}
-
 function escapeHtml(value) {
   return String(value ?? '').replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' })[char]);
-}
-
-function renderIdeas() {
-  const list = document.querySelector('#ideasList');
-  const preview = document.querySelector('#ideaPreview');
-  if (!list || !preview) return;
-
-  if (!ideas.length) {
-    list.innerHTML = '<p class="ideas-empty">还没有便签。把第一个念头放在上面的输入框里吧。</p>';
-    preview.innerHTML = '<p>把稍纵即逝的想法，留在这里。</p>';
-    return;
-  }
-
-  const ordered = [...ideas].sort((a, b) => Number(b.pinned) - Number(a.pinned));
-  list.innerHTML = ordered.map(note => `
-    <article class="sticky-note note-tone-${note.color}" data-idea-id="${escapeHtml(note.id)}">
-      <textarea aria-label="编辑灵感便签">${escapeHtml(note.text)}</textarea>
-      <footer><button type="button" class="idea-pin" data-pin-idea aria-pressed="${note.pinned}" aria-label="${note.pinned ? '取消置顶' : '置顶'}">${note.pinned ? '已置顶' : '置顶'}</button><select data-idea-color aria-label="便签颜色"><option value="peach" ${note.color === 'peach' ? 'selected' : ''}>桃色</option><option value="mint" ${note.color === 'mint' ? 'selected' : ''}>薄荷</option><option value="mist" ${note.color === 'mist' ? 'selected' : ''}>雾蓝</option><option value="cream" ${note.color === 'cream' ? 'selected' : ''}>奶油</option></select><button type="button" class="delete-idea" aria-label="删除这张便签">删除</button></footer>
-    </article>
-  `).join('');
-  preview.innerHTML = `<small>最近记录</small><p>${escapeHtml(ideas[0].text)}</p>`;
 }
 
 function taskMarkup(task) {
@@ -1169,57 +1126,6 @@ document.addEventListener('click', event => {
   if (openNote) { activeNoteId = openNote.dataset.openNote; renderNotes(); return; }
   const editFolder = event.target.closest('[data-edit-folder]');
   if (editFolder) { openFolderDialog(editFolder.dataset.editFolder); return; }
-  const pinIdea = event.target.closest('[data-pin-idea]');
-  if (pinIdea) {
-    const note = ideas.find(item => item.id === pinIdea.closest('[data-idea-id]').dataset.ideaId);
-    if (!note) return;
-    note.pinned = !note.pinned;
-    saveIdeas();
-    renderIdeas();
-    return;
-  }
-  const deleteButton = event.target.closest('.delete-idea');
-  if (deleteButton) {
-    const card = deleteButton.closest('[data-idea-id]');
-    if (!confirm('删除这张灵感便签？此操作无法撤销。')) return;
-    ideas = ideas.filter(note => note.id !== card.dataset.ideaId);
-    saveIdeas();
-    renderIdeas();
-    show('便签已删除');
-  }
-});
-
-document.querySelector('#ideaForm').addEventListener('submit', event => {
-  event.preventDefault();
-  const input = document.querySelector('#ideaInput');
-  const text = input.value.trim();
-  if (!text) {
-    input.focus();
-    return;
-  }
-  ideas.unshift({ id: newId(), text, pinned: false, color: 'peach' });
-  saveIdeas();
-  input.value = '';
-  renderIdeas();
-  show('便签已创建');
-});
-
-document.querySelector('#ideasList').addEventListener('input', event => {
-  if (!event.target.matches('textarea')) return;
-  const card = event.target.closest('[data-idea-id]');
-  const note = ideas.find(item => item.id === card.dataset.ideaId);
-  if (note) {
-    note.text = event.target.value;
-    saveIdeas();
-  }
-});
-document.querySelector('#ideasList').addEventListener('change', event => {
-  if (!event.target.matches('[data-idea-color]')) return;
-  const note = ideas.find(item => item.id === event.target.closest('[data-idea-id]').dataset.ideaId);
-  if (!note) return;
-  note.color = event.target.value;
-  saveIdeas();
-  renderIdeas();
 });
 
 document.querySelector('#folderForm').addEventListener('submit', event => {
@@ -1424,7 +1330,6 @@ updateDateLine();
 setInterval(updateDateLine, 60000);
 
 apply();
-renderIdeas();
 renderCalendar();
 renderTasks();
 renderNotes();
