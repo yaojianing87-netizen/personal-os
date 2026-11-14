@@ -57,8 +57,57 @@
             </article>
           </div>
         </div>
-        <div class="page simple-page tasks-page" id="tasks"><div class="page-intro"><div><p class="eyebrow">FOCUS & FLOW</p><h1 class="sr-only">任务清单</h1><p class="compact-page-title">任务清单</p></div><button class="primary-btn" data-add-task type="button">＋ 新建任务</button></div><section class="tasks-panel" aria-label="任务清单"><p class="task-summary" id="taskSummary"></p><div class="tasks-page-list" id="tasksPageList" aria-live="polite"></div></section></div>
-        <div class="page simple-page" id="calendar"><div class="page-intro"><div><p class="eyebrow">PLAN & REMEMBER</p><h1 class="sr-only">日历</h1><p class="compact-page-title">日历</p></div><button class="outline-btn" id="addCalendarNote" type="button">＋ 新建日程</button></div><section class="calendar-placeholder calendar-feature" aria-label="日历"><div class="calendar-top"><button class="calendar-arrow" id="previousCalendarMonth" aria-label="上一个月" type="button">‹</button><b id="calendarTitle">日历</b><button class="calendar-arrow" id="nextCalendarMonth" aria-label="下一个月" type="button">›</button></div><p class="calendar-hint">点击日期创建日程；点击已有日程可编辑。所有内容会自动保存。</p><div class="calendar-grid" id="calendarGrid" aria-live="polite"></div></section></div>
+                <div class="page tasks-page" id="tasks">
+          <header class="tk-head">
+            <div>
+              <p class="eyebrow">TASKS</p>
+              <h1 class="tk-title">任务清单</h1>
+              <p class="tk-sub">Plan, track and complete your tasks.</p>
+              <p class="sr-only" id="taskSummary"></p>
+            </div>
+            <button class="primary-btn" data-add-task type="button">＋ 新建任务</button>
+          </header>
+          <section class="tk-summary" aria-label="任务概览">
+            <div class="tk-metric"><span class="tk-metric-icon is-done" aria-hidden="true">✓</span><div><b id="tkDone">0</b><small>已完成</small></div></div>
+            <div class="tk-metric"><span class="tk-metric-icon is-doing" aria-hidden="true"></span><div><b id="tkDoing">0</b><small>进行中</small></div></div>
+            <div class="tk-metric"><span class="tk-metric-icon is-later" aria-hidden="true">▦</span><div><b id="tkLater">0</b><small>待开始</small></div></div>
+          </section>
+          <div class="tk-layout">
+            <section class="tk-card tk-list-card" aria-label="任务清单">
+              <div class="tk-toolbar">
+                <div class="tk-tabs" id="tkTabs" role="tablist" aria-label="分类筛选"></div>
+                <label class="tk-sort">排序
+                  <select id="tkSort" aria-label="排序方式">
+                    <option value="due">按截止日期</option>
+                    <option value="priority">按优先级</option>
+                  </select>
+                </label>
+              </div>
+              <div class="tasks-page-list" id="tasksPageList" aria-live="polite"></div>
+            </section>
+            <aside class="tk-rail">
+              <article class="tk-card tk-mini">
+                <h2 class="tk-mini-title"><span class="tk-ico" aria-hidden="true">▥</span>本周进度<b id="tkWeekCount">0 / 0</b></h2>
+                <div class="tk-week-bar" role="progressbar" aria-label="本周完成进度"><span id="tkWeekBar"></span></div>
+                <p class="tk-week-note"><span id="tkWeekPercent">0%</span><span id="tkWeekHint">本周还没有安排任务</span></p>
+              </article>
+              <article class="tk-card tk-mini">
+                <h2 class="tk-mini-title"><span class="tk-ico" aria-hidden="true">◎</span>今日重点</h2>
+                <div class="tk-focus-list" id="tkFocusList"></div>
+                <button class="tk-text-btn" id="tkFocusEdit" type="button">＋ 选择任务</button>
+              </article>
+              <article class="tk-card tk-mini">
+                <h2 class="tk-mini-title"><span class="tk-ico" aria-hidden="true">▤</span>任务统计<button class="tk-link" type="button" data-open-task-stats>查看详情 →</button></h2>
+                <div class="tk-stats-row">
+                  <div><b id="tkWeekTotal">0</b><small>本周任务</small></div>
+                  <div><b id="tkWeekDone">0</b><small>已完成</small></div>
+                  <div><b id="tkComplRate">0%</b><small>完成率</small></div>
+                </div>
+              </article>
+            </aside>
+          </div>
+        </div>
+<div class="page simple-page" id="calendar"><div class="page-intro"><div><p class="eyebrow">PLAN & REMEMBER</p><h1 class="sr-only">日历</h1><p class="compact-page-title">日历</p></div><button class="outline-btn" id="addCalendarNote" type="button">＋ 新建日程</button></div><section class="calendar-placeholder calendar-feature" aria-label="日历"><div class="calendar-top"><button class="calendar-arrow" id="previousCalendarMonth" aria-label="上一个月" type="button">‹</button><b id="calendarTitle">日历</b><button class="calendar-arrow" id="nextCalendarMonth" aria-label="下一个月" type="button">›</button></div><p class="calendar-hint">点击日期创建日程；点击已有日程可编辑。所有内容会自动保存。</p><div class="calendar-grid" id="calendarGrid" aria-live="polite"></div></section></div>
         <div class="page simple-page notes-page" id="notes"><div class="page-intro"><div><p class="eyebrow">CAPTURE & KEEP</p><h1 class="sr-only">笔记</h1><p class="compact-page-title">笔记</p></div><div class="notes-actions"><button class="outline-btn" id="addFolder" type="button">＋ 文件夹</button><button class="primary-btn" id="addNote" type="button">＋ 新建笔记</button></div></div><section class="notes-workspace"><div class="notes-browser"><nav class="notes-path" id="notesPath" aria-label="笔记路径"></nav><div class="notes-items" id="notesItems" aria-live="polite"></div></div><aside class="note-editor" id="noteEditor" hidden><div class="note-editor-top"><span class="eyebrow">自动保存</span><button class="text-button" id="deleteNote" type="button">删除笔记</button></div><label class="sr-only" for="noteTitle">笔记标题，可直接编辑以重命名</label><input id="noteTitle" maxlength="160" placeholder="笔记标题" aria-label="笔记标题，输入内容会自动保存" /><label class="sr-only" for="noteBody">笔记正文</label><textarea id="noteBody" placeholder="开始写下你的想法…" aria-label="笔记正文，输入内容会自动保存"></textarea></aside></section></div>
         <div class="page simple-page" id="goals"><div class="page-intro"><div><p class="eyebrow">DIRECTION</p><h1 class="sr-only">目标</h1><p class="compact-page-title">目标</p></div></div><div class="empty-feature"><span>↗</span><h2>正在前往的地方</h2><p>创建目标与手动更新进度将在下一阶段启用。</p></div></div>
         <div class="page fm-page" id="focusmode">
@@ -151,7 +200,13 @@
       </section>
     </main>
     <dialog class="calendar-dialog" id="calendarDialog" aria-labelledby="calendarDialogTitle"><form class="calendar-note-form" id="calendarNoteForm"><div class="dialog-heading"><div><p class="eyebrow">CALENDAR EVENT</p><h2 id="calendarDialogTitle">新建日程</h2></div><button class="dialog-close" id="closeCalendarDialog" type="button" aria-label="关闭">×</button></div><label for="calendarNoteDate">日期</label><input id="calendarNoteDate" type="date" required /><label for="calendarEventTitle">日程标题</label><input id="calendarEventTitle" type="text" maxlength="100" placeholder="例如：和朋友喝咖啡" /><label for="calendarEventTime">时间（可选）</label><input id="calendarEventTime" type="time" /><label for="calendarNoteText">备注（可选）</label><textarea id="calendarNoteText" rows="4" maxlength="500" placeholder="地点、准备事项，或当天想留下的备注…"></textarea><p class="calendar-form-error" id="calendarFormError" role="alert" hidden>请填写日程标题或备注。</p><div class="dialog-actions"><button class="text-button delete-calendar-note" id="deleteCalendarNote" type="button">删除</button><span></span><button class="outline-btn" id="cancelCalendarNote" type="button">取消</button><button class="primary-btn" type="submit">保存</button></div></form></dialog>
-    <dialog class="calendar-dialog task-dialog" id="taskDialog" aria-labelledby="taskDialogTitle"><form class="calendar-note-form" id="taskForm"><div class="dialog-heading"><div><p class="eyebrow">TASK</p><h2 id="taskDialogTitle">新建任务</h2></div><button class="dialog-close" id="closeTaskDialog" type="button" aria-label="关闭">×</button></div><label for="taskTitleInput">任务名称</label><input id="taskTitleInput" type="text" maxlength="160" required placeholder="写下要完成的事情…" /><label for="taskPriorityInput">优先级</label><select id="taskPriorityInput"><option value="HIGH">HIGH</option><option value="MEDIUM">MEDIUM</option><option value="LOW">LOW</option></select><label class="task-personal" for="taskPersonalInput"><input id="taskPersonalInput" type="checkbox" />PERSONAL（个人事项，类别）</label><div class="dialog-actions"><button class="text-button delete-calendar-note" id="deleteTask" type="button">删除</button><span></span><button class="outline-btn" id="cancelTaskDialog" type="button">取消</button><button class="primary-btn" type="submit">保存</button></div></form></dialog>
+    <dialog class="calendar-dialog task-dialog" id="taskDialog" aria-labelledby="taskDialogTitle"><form class="calendar-note-form" id="taskForm"><div class="dialog-heading"><div><p class="eyebrow">TASK</p><h2 id="taskDialogTitle">新建任务</h2></div><button class="dialog-close" id="closeTaskDialog" type="button" aria-label="关闭">×</button></div><label for="taskTitleInput">任务名称</label><input id="taskTitleInput" type="text" maxlength="160" required placeholder="写下要完成的事情…" /><label for="taskDueInput">截止日期</label>
+        <input id="taskDueInput" type="date" />
+        <label for="taskPriorityInput">优先级</label>
+        <select id="taskPriorityInput"><option value="HIGH">HIGH</option><option value="MEDIUM">MEDIUM</option><option value="LOW">LOW</option></select>
+        <label for="taskCategoryInput">分类</label>
+        <select id="taskCategoryInput"><option value="">无分类</option><option value="PERSONAL">个人</option><option value="STUDY">学习</option><option value="WORK">工作</option><option value="TRAVEL">旅行</option></select>
+        <div class="dialog-actions"><button class="text-button delete-calendar-note" id="deleteTask" type="button">删除</button><span></span><button class="outline-btn" id="cancelTaskDialog" type="button">取消</button><button class="primary-btn" type="submit">保存</button></div></form></dialog>
     <dialog class="calendar-dialog task-dialog" id="folderDialog" aria-labelledby="folderDialogTitle"><form class="calendar-note-form" id="folderForm"><div class="dialog-heading"><div><p class="eyebrow">FOLDER</p><h2 id="folderDialogTitle">新建文件夹</h2></div><button class="dialog-close" id="closeFolderDialog" type="button" aria-label="关闭">×</button></div><label for="folderIconInput">图标</label><input id="folderIconInput" maxlength="4" value="◫" /><label for="folderNameInput">名称</label><input id="folderNameInput" maxlength="80" required placeholder="例如：工作灵感" /><div class="dialog-actions"><button class="text-button delete-calendar-note" id="deleteFolder" type="button">删除文件夹</button><span></span><button class="outline-btn" id="cancelFolderDialog" type="button">取消</button><button class="primary-btn" type="submit">保存</button></div></form></dialog>
     <dialog class="calendar-dialog travel-dialog" id="travelDialog" aria-labelledby="travelDialogTitle">
       <form class="calendar-note-form" id="travelForm">
@@ -223,6 +278,20 @@
       <div class="calendar-note-form">
         <div class="dialog-heading"><div><p class="eyebrow" id="fmInfoEyebrow">FOCUS MODE</p><h2 id="fmInfoTitle"></h2></div><button class="dialog-close" id="fmInfoClose" type="button" aria-label="关闭">×</button></div>
         <div class="fm-info-body" id="fmInfoBody"></div>
+      </div>
+    </dialog>
+    <dialog class="calendar-dialog task-picker-dialog" id="taskPickerDialog" aria-labelledby="taskPickerTitle">
+      <div class="calendar-note-form">
+        <div class="dialog-heading"><div><p class="eyebrow">TODAY'S FOCUS</p><h2 id="taskPickerTitle">选择今日重点</h2></div><button class="dialog-close" id="taskPickerClose" type="button" aria-label="关闭">×</button></div>
+        <p class="tk-picker-hint">从你已有的任务里挑几项作为今天的重点，不会创建新任务。</p>
+        <div class="task-picker-list" id="taskPickerList"></div>
+        <div class="dialog-actions"><span></span><span></span><span></span><button class="primary-btn" id="taskPickerDone" type="button">完成</button></div>
+      </div>
+    </dialog>
+    <dialog class="calendar-dialog task-stats-dialog" id="taskStatsDialog" aria-labelledby="taskStatsTitle">
+      <div class="calendar-note-form">
+        <div class="dialog-heading"><div><p class="eyebrow">TASKS</p><h2 id="taskStatsTitle">任务统计</h2></div><button class="dialog-close" id="taskStatsClose" type="button" aria-label="关闭">×</button></div>
+        <div class="tk-info-grid" id="taskStatsBody"></div>
       </div>
     </dialog>
     <div class="toast" id="toast"></div>

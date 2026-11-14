@@ -1,5 +1,7 @@
 /* 任务排序用到的常量：必须放在文件最前面，因为下面马上就会读取任务并排序 */
 const TASK_PRIORITY_RANK = { HIGH: 0, MEDIUM: 1, LOW: 2 };
+const TASK_CATEGORIES = { PERSONAL: '个人', STUDY: '学习', WORK: '工作', TRAVEL: '旅行' };
+const TASK_CATEGORY_CLASS = { PERSONAL: 'priority-personal', STUDY: 'cat-study', WORK: 'cat-work', TRAVEL: 'cat-travel' };
 const PINYIN_BOUNDARIES = [['A', '阿'], ['B', '芭'], ['C', '擦'], ['D', '搭'], ['E', '蛾'], ['F', '发'], ['G', '噶'], ['H', '哈'], ['J', '击'], ['K', '喀'], ['L', '垃'], ['M', '妈'], ['N', '拿'], ['O', '哦'], ['P', '啪'], ['Q', '期'], ['R', '然'], ['S', '撒'], ['T', '塌'], ['W', '挖'], ['X', '昔'], ['Y', '压'], ['Z', '匝']];
 const pinyinCollator = (() => {
   try {
@@ -123,8 +125,10 @@ function normalizeTask(task, index) {
     id: task.id || newId(),
     title: task.title,
     priority: TASK_PRIORITY_RANK[task.priority] !== undefined ? task.priority : (legacyPersonal ? 'MEDIUM' : 'LOW'),
-    category: task.category === 'PERSONAL' || legacyPersonal ? 'PERSONAL' : '',
+    category: legacyPersonal ? 'PERSONAL' : (Object.prototype.hasOwnProperty.call(TASK_CATEGORIES, task.category) ? task.category : ''),
     completed: Boolean(task.completed),
+    focus: Boolean(task.focus),
+    dueDate: typeof task.dueDate === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(task.dueDate) ? task.dueDate : '',
     seq: Number.isFinite(Number(task.seq)) ? Number(task.seq) : index
   };
 }
@@ -351,14 +355,14 @@ function escapeHtml(value) {
 }
 
 function taskMarkup(task) {
-  return '<article class="task ' + (task.completed ? 'done' : '') + '" data-task-id="' + task.id + '"><label class="task-check"><input type="checkbox" data-task-toggle ' + (task.completed ? 'checked' : '') + ' aria-label="标记“' + escapeHtml(task.title) + '”完成"><span></span></label><button class="task-title" type="button" data-edit-task>' + escapeHtml(task.title) + '</button><div class="task-badges"><button class="task-priority priority-' + task.priority.toLowerCase() + '" type="button" data-edit-task aria-label="编辑“' + escapeHtml(task.title) + '”的优先级">' + task.priority + '</button>' + (task.category === 'PERSONAL' ? '<button class="task-priority priority-personal" type="button" data-edit-task aria-label="编辑“' + escapeHtml(task.title) + '”的类别">PERSONAL</button>' : '') + '</div><button class="task-edit" type="button" data-edit-task aria-label="编辑“' + escapeHtml(task.title) + '”">编辑</button></article>';
+  return '<article class="task ' + (task.completed ? 'done' : '') + '" data-task-id="' + task.id + '"><label class="task-check"><input type="checkbox" data-task-toggle ' + (task.completed ? 'checked' : '') + ' aria-label="标记“' + escapeHtml(task.title) + '”完成"><span></span></label><button class="task-title" type="button" data-edit-task>' + escapeHtml(task.title) + '</button><div class="task-badges"><button class="task-priority priority-' + task.priority.toLowerCase() + '" type="button" data-edit-task aria-label="编辑“' + escapeHtml(task.title) + '”的优先级">' + task.priority + '</button>' + (task.category ? '<button class="task-priority ' + (TASK_CATEGORY_CLASS[task.category] || '') + '" type="button" data-edit-task aria-label="编辑“' + escapeHtml(task.title) + '”的类别">' + task.category + '</button>' : '') + '</div><button class="task-edit" type="button" data-edit-task aria-label="编辑“' + escapeHtml(task.title) + '”">编辑</button></article>';
 }
 
 function renderTasks() {
   sortTasks();
   const orderedTasks = tasks;
   document.querySelector('#taskList').innerHTML = orderedTasks.slice(0, 4).map(taskMarkup).join('') || '<p class="tasks-empty">还没有任务。</p>';
-  document.querySelector('#tasksPageList').innerHTML = orderedTasks.map(taskMarkup).join('') || '<p class="tasks-empty">还没有任务。点击“新建任务”开始吧。</p>';
+  renderTasksPage();
   updateTaskCount();
   if (typeof fmRenderTask === 'function') fmRenderTask();
 }
@@ -376,7 +380,8 @@ function openTaskDialog(taskId = null) {
   document.querySelector('#taskDialogTitle').textContent = task ? '编辑任务' : '新建任务';
   document.querySelector('#taskTitleInput').value = task ? task.title : '';
   document.querySelector('#taskPriorityInput').value = task ? task.priority : 'LOW';
-  document.querySelector('#taskPersonalInput').checked = Boolean(task && task.category === 'PERSONAL');
+  document.querySelector('#taskDueInput').value = task ? task.dueDate : toDateKey(new Date());
+  document.querySelector('#taskCategoryInput').value = task ? task.category : '';
   document.querySelector('#deleteTask').hidden = !task;
   document.querySelector('#taskDialog').showModal();
   document.querySelector('#taskTitleInput').focus();
@@ -1256,6 +1261,189 @@ document.querySelector('#cancelCalendarNote').addEventListener('click', () => {
   document.querySelector('#calendarDialog').close();
 });
 
+/* ---------- 任务页（参考设计的真实交互） ---------- */
+let taskFilter = 'all';
+let taskSortMode = 'due';
+const taskGroupsCollapsed = { today: false, week: false, later: false };
+
+function taskTodayKey() { return toDateKey(new Date()); }
+function taskWeekRange() {
+  const now = new Date();
+  const offset = (now.getDay() + 6) % 7; // 周一为一周的开始
+  const start = new Date(now);
+  start.setDate(now.getDate() - offset);
+  const end = new Date(start);
+  end.setDate(start.getDate() + 6);
+  return { start: toDateKey(start), end: toDateKey(end) };
+}
+// 今天（含已过期）、本周、之后；没有截止日期的算“之后”
+function taskBucket(task) {
+  if (!task.dueDate) return 'later';
+  const today = taskTodayKey();
+  if (task.dueDate <= today) return 'today';
+  if (task.dueDate <= taskWeekRange().end) return 'week';
+  return 'later';
+}
+function taskMatchesFilter(task) {
+  if (taskFilter === 'all') return true;
+  if (taskFilter === 'high') return task.priority === 'HIGH';
+  if (taskFilter.startsWith('cat:')) return task.category === taskFilter.slice(4);
+  return true;
+}
+function taskViewComparator() {
+  if (taskSortMode === 'priority') return compareTasks;
+  return (a, b) => {
+    const dueA = a.dueDate || '9999-99-99';
+    const dueB = b.dueDate || '9999-99-99';
+    if (dueA !== dueB) return dueA < dueB ? -1 : 1;
+    const rank = (TASK_PRIORITY_RANK[a.priority] ?? 3) - (TASK_PRIORITY_RANK[b.priority] ?? 3);
+    if (rank) return rank;
+    return (a.seq ?? 0) - (b.seq ?? 0);
+  };
+}
+
+function taskCategoryBadge(task) {
+  if (!task.category) return '';
+  return '<button type="button" class="task-priority ' + (TASK_CATEGORY_CLASS[task.category] || '') + '" data-edit-task aria-label="编辑“' + escapeHtml(task.title) + '”的分类">' + task.category + '</button>';
+}
+function taskRowMarkup(task) {
+  return '<article class="tk-row' + (task.completed ? ' done' : '') + '" data-task-id="' + escapeHtml(task.id) + '">' +
+    '<label class="task-check"><input type="checkbox" data-task-toggle ' + (task.completed ? 'checked' : '') + ' aria-label="标记“' + escapeHtml(task.title) + '”完成"><span></span></label>' +
+    '<button class="tk-row-title" type="button" data-edit-task>' + escapeHtml(task.title) + '</button>' +
+    '<div class="task-badges"><button type="button" class="task-priority priority-' + task.priority.toLowerCase() + '" data-edit-task aria-label="编辑“' + escapeHtml(task.title) + '”的优先级">' + task.priority + '</button>' + taskCategoryBadge(task) + '</div>' +
+    '</article>';
+}
+
+function renderTasksPage() {
+  const list = document.getElementById('tasksPageList');
+  const doneEl = document.getElementById('tkDone');
+  if (!list || !doneEl) return; // 页面结构还没解析完时先跳过，DOM 就绪后会重画
+  const today = taskTodayKey();
+  const { start, end } = taskWeekRange();
+  const undone = tasks.filter(task => !task.completed);
+  document.getElementById('tkDone').textContent = String(tasks.length - undone.length);
+  document.getElementById('tkDoing').textContent = String(undone.filter(task => !task.dueDate || task.dueDate <= today).length);
+  document.getElementById('tkLater').textContent = String(undone.filter(task => task.dueDate && task.dueDate > today).length);
+
+  // 分类筛选标签
+  const tabs = [{ id: 'all', label: '全部', count: tasks.length }, { id: 'high', label: '高优先级', count: tasks.filter(task => task.priority === 'HIGH').length }];
+  Object.keys(TASK_CATEGORIES).forEach(key => {
+    const count = tasks.filter(task => task.category === key).length;
+    if (count) tabs.push({ id: 'cat:' + key, label: TASK_CATEGORIES[key], count });
+  });
+  if (!tabs.some(tab => tab.id === taskFilter)) taskFilter = 'all';
+  document.getElementById('tkTabs').innerHTML = tabs.map(tab =>
+    '<button type="button" role="tab" class="tk-tab' + (taskFilter === tab.id ? ' is-active' : '') + '" aria-selected="' + (taskFilter === tab.id) + '" data-tk-filter="' + tab.id + '">' +
+    escapeHtml(tab.label) + '<em>' + tab.count + '</em></button>').join('');
+
+  // 分组 + 排序
+  const groups = { today: [], week: [], later: [] };
+  tasks.filter(taskMatchesFilter).forEach(task => groups[taskBucket(task)].push(task));
+  const comparator = taskViewComparator();
+  const labels = { today: '今天', week: '本周', later: '之后' };
+  const sections = Object.keys(groups).map(key => {
+    const items = [...groups[key]].sort(comparator);
+    if (!items.length) return '';
+    const collapsed = taskGroupsCollapsed[key];
+    return '<section class="tk-group' + (collapsed ? ' is-collapsed' : '') + '">' +
+      '<button type="button" class="tk-group-head" data-tk-group="' + key + '" aria-expanded="' + !collapsed + '">' +
+      '<span class="tk-chevron" aria-hidden="true">⌄</span>' + labels[key] + '<em>' + items.length + '</em></button>' +
+      '<div class="tk-group-body">' + items.map(taskRowMarkup).join('') + '</div></section>';
+  }).join('');
+  list.innerHTML = sections || '<p class="tasks-empty">' + (tasks.length ? '这个筛选下没有任务。' : '还没有任务。点击「新建任务」开始吧。') + '</p>';
+
+  // 本周进度（按截止日期落在本周的任务计算）
+  const weekTasks = tasks.filter(task => task.dueDate && task.dueDate >= start && task.dueDate <= end);
+  const weekDone = weekTasks.filter(task => task.completed).length;
+  const percent = weekTasks.length ? Math.round((weekDone / weekTasks.length) * 100) : 0;
+  document.getElementById('tkWeekCount').textContent = weekDone + ' / ' + weekTasks.length;
+  document.getElementById('tkWeekBar').style.width = percent + '%';
+  document.getElementById('tkWeekPercent').textContent = percent + '%';
+  document.getElementById('tkWeekHint').textContent = weekTasks.length ? '本周任务的完成情况' : '本周还没有安排任务';
+
+  // 今日重点：直接复用任务数据里的 focus 标记
+  const focusTasks = tasks.filter(task => task.focus);
+  document.getElementById('tkFocusList').innerHTML = focusTasks.length
+    ? focusTasks.map(task => '<div class="tk-focus-row' + (task.completed ? ' done' : '') + '" data-task-id="' + escapeHtml(task.id) + '">' +
+      '<label class="task-check"><input type="checkbox" data-task-toggle ' + (task.completed ? 'checked' : '') + ' aria-label="标记“' + escapeHtml(task.title) + '”完成"><span></span></label>' +
+      '<button type="button" class="tk-focus-title" data-edit-task>' + escapeHtml(task.title) + '</button>' +
+      '<div class="task-badges"><button type="button" class="task-priority priority-' + task.priority.toLowerCase() + '" data-edit-task>' + task.priority + '</button>' + taskCategoryBadge(task) + '</div></div>').join('')
+    : '<p class="tk-focus-empty">还没有选择重点任务。点下面的按钮，从已有任务里挑。</p>';
+
+  // 任务统计
+  document.getElementById('tkWeekTotal').textContent = String(weekTasks.length);
+  document.getElementById('tkWeekDone').textContent = String(weekDone);
+  document.getElementById('tkComplRate').textContent = percent + '%';
+}
+
+/* 今日重点：只会给已有任务打上/取消 focus 标记 */
+function openTaskPicker() {
+  const body = document.getElementById('taskPickerList');
+  const list = [...tasks].sort((a, b) => Number(a.completed) - Number(b.completed));
+  body.innerHTML = list.length
+    ? list.map(task => '<label class="task-picker-item"><input type="checkbox" data-picker-task="' + escapeHtml(task.id) + '"' + (task.focus ? ' checked' : '') + ' /><span>' + escapeHtml(task.title) + '</span><small>' + task.priority + (task.completed ? ' · 已完成' : '') + '</small></label>').join('')
+    : '<p class="tasks-empty">还没有任务，先去新建一个吧。</p>';
+  document.getElementById('taskPickerDialog').showModal();
+}
+function openTaskStats() {
+  const { start, end } = taskWeekRange();
+  const weekTasks = tasks.filter(task => task.dueDate && task.dueDate >= start && task.dueDate <= end);
+  const done = tasks.filter(task => task.completed).length;
+  const cell = (label, value, note) => '<div class="tk-stat"><small>' + label + '</small><b>' + value + '</b><span>' + note + '</span></div>';
+  document.getElementById('taskStatsBody').innerHTML =
+    cell('本周任务', weekTasks.length, start + ' 至 ' + end) +
+    cell('本周已完成', weekTasks.filter(task => task.completed).length, '按截止日期统计') +
+    cell('全部任务', tasks.length, done + ' 个已完成') +
+    cell('未完成', tasks.length - done, '含已过期与未安排日期') +
+    cell('今日重点', tasks.filter(task => task.focus).length, '从已有任务中选择');
+  document.getElementById('taskStatsDialog').showModal();
+}
+
+/* 等页面结构解析完成再绑定；否则最后几个元素可能还查不到 */
+function initTasksPageDom() {
+  document.getElementById('tkTabs').addEventListener('click', event => {
+    const tab = event.target.closest('[data-tk-filter]');
+    if (!tab) return;
+    taskFilter = tab.dataset.tkFilter;
+    renderTasksPage();
+  });
+  document.getElementById('tkSort').addEventListener('change', event => {
+    taskSortMode = event.target.value === 'priority' ? 'priority' : 'due';
+    renderTasksPage();
+  });
+  document.getElementById('tasksPageList').addEventListener('click', event => {
+    const head = event.target.closest('[data-tk-group]');
+    if (!head) return;
+    const key = head.dataset.tkGroup;
+    taskGroupsCollapsed[key] = !taskGroupsCollapsed[key];
+    renderTasksPage();
+  });
+  document.getElementById('tkFocusEdit').addEventListener('click', openTaskPicker);
+  document.getElementById('taskPickerList').addEventListener('change', event => {
+    const picker = event.target.closest('[data-picker-task]');
+    if (!picker) return;
+    const task = tasks.find(item => item.id === picker.dataset.pickerTask);
+    if (!task) return;
+    task.focus = picker.checked;
+    saveTasks();
+    renderTasks();
+  });
+  ['taskPickerClose', 'taskPickerDone'].forEach(id => document.querySelector('#' + id).addEventListener('click', () => document.getElementById('taskPickerDialog').close()));
+  // 这个按钮用 #id 选择器在部分 Chromium 上会查不到（解析期索引问题），改用属性选择器更稳
+  // 「查看详情」用事件委托挂在任务页容器上，避免依赖单个元素的 id 查找
+  document.querySelector('.tasks-page').addEventListener('click', event => {
+    if (event.target.closest('[data-open-task-stats]')) openTaskStats();
+  });
+  document.getElementById('taskStatsClose').addEventListener('click', () => document.getElementById('taskStatsDialog').close());
+  ['taskPickerDialog', 'taskStatsDialog'].forEach(id => document.querySelector('#' + id).addEventListener('click', event => {
+    if (event.target === event.currentTarget) event.currentTarget.close();
+  }));
+  renderTasksPage();
+}
+// 浏览器解析完页面后，最后几个元素的 id 索引要等 load 才稳定，所以放到 load 再绑定
+if (document.readyState === 'complete') initTasksPageDom();
+else window.addEventListener('load', initTasksPageDom, { once: true });
+
 document.querySelector('#taskForm').addEventListener('submit', event => {
   event.preventDefault();
   const title = document.querySelector('#taskTitleInput').value.trim();
@@ -1264,14 +1452,16 @@ document.querySelector('#taskForm').addEventListener('submit', event => {
     return;
   }
   const priority = document.querySelector('#taskPriorityInput').value;
-  const category = document.querySelector('#taskPersonalInput').checked ? 'PERSONAL' : '';
+  const category = document.querySelector('#taskCategoryInput').value;
+  const dueDate = document.querySelector('#taskDueInput').value;
   const existing = tasks.find(task => task.id === editingTaskId);
   if (existing) {
     existing.title = title;
     existing.priority = priority;
     existing.category = category;
+    existing.dueDate = dueDate;
   } else {
-    tasks.push({ id: newId(), title, priority, category, completed: false, seq: Math.max(-1, ...tasks.map(task => task.seq)) + 1 });
+    tasks.push({ id: newId(), title, priority, category, dueDate, completed: false, focus: false, seq: Math.max(-1, ...tasks.map(task => task.seq)) + 1 });
   }
   saveTasks();
   renderTasks();
@@ -1281,6 +1471,8 @@ document.querySelector('#taskForm').addEventListener('submit', event => {
 
 document.querySelector('#deleteTask').addEventListener('click', () => {
   if (!editingTaskId) return;
+  const target = tasks.find(task => task.id === editingTaskId);
+  if (target && !confirm('删除任务「' + target.title + '」？此操作无法撤销。')) return;
   tasks = tasks.filter(task => task.id !== editingTaskId);
   saveTasks();
   renderTasks();
