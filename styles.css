@@ -78,3 +78,32 @@
 .focus-main [contenteditable]:focus{background:color-mix(in srgb,var(--card) 72%,transparent);box-shadow:0 0 0 1px color-mix(in srgb,var(--ink) 20%,transparent)}
 .focus-main [contenteditable]:empty:before,.focus-main [contenteditable]:has(>br:only-child):before{content:"点击这里输入…";color:var(--muted)}
 .focus-progress{display:block;width:190px;height:16px;margin:8px 0 0;accent-color:var(--ink);cursor:pointer}
+/* ===== 旅行景点：面板里的景点按钮 + 相册 ===== */
+.travel-place-group{display:grid;gap:6px}
+.travel-attractions{display:flex;flex-wrap:wrap;gap:6px;padding:0 2px 2px}
+.travel-attraction{border:1px solid color-mix(in srgb,var(--tone) 55%,transparent);background:color-mix(in srgb,var(--card) 75%,transparent);border-radius:999px;padding:5px 10px;font:inherit;font-size:11px;color:var(--ink);cursor:pointer;display:inline-flex;gap:5px;align-items:center;max-width:100%}
+.travel-attraction:hover{border-color:var(--tone);transform:translateY(-1px)}
+.travel-attraction span{color:var(--tone);font-size:9px}
+.travel-attraction-add{border:1px dashed color-mix(in srgb,var(--ink) 25%,transparent);background:transparent;border-radius:999px;padding:5px 10px;font:inherit;font-size:11px;color:var(--muted);cursor:pointer}
+.travel-attraction-add:hover{border-color:var(--tone);color:var(--ink)}
+.travel-add-attraction{height:50px;border-radius:16px;white-space:nowrap}
+.attraction-dialog{width:min(620px,calc(100vw - 32px));max-height:92vh;overflow:auto}
+.attraction-dialog select{width:100%;border:1px solid color-mix(in srgb,var(--ink) 18%,transparent);border-radius:9px;background:color-mix(in srgb,var(--paper) 52%,transparent);color:var(--ink);font:inherit;padding:10px;outline-color:var(--primary)}
+.attraction-upload{display:inline-flex;align-items:center;justify-content:center;gap:8px;border:1px dashed color-mix(in srgb,var(--ink) 30%,transparent);border-radius:10px;padding:11px;font-size:12px;font-weight:700;cursor:pointer;background:color-mix(in srgb,var(--paper) 55%,transparent)}
+.attraction-upload:hover{border-color:var(--primary)}
+.attraction-upload input{display:none}
+.attraction-hint{font-size:10px;line-height:1.5;color:var(--muted);margin:0}
+.attraction-gallery{display:grid;grid-template-columns:repeat(auto-fill,minmax(104px,1fr));gap:8px}
+.attraction-gallery-empty{margin:0;padding:18px 12px;text-align:center;font-size:11px;color:var(--muted);border:1px dashed color-mix(in srgb,var(--ink) 20%,transparent);border-radius:12px}
+.attraction-photo{margin:0;border:1px solid color-mix(in srgb,var(--ink) 14%,transparent);border-radius:12px;overflow:hidden;background:var(--paper)}
+.attraction-photo.is-cover{outline:2px solid var(--primary);outline-offset:1px}
+.attraction-photo-open{display:block;width:100%;border:0;padding:0;background:none;cursor:zoom-in}
+.attraction-photo-open img{display:block;width:100%;height:80px;object-fit:cover}
+.attraction-photo figcaption{display:flex;justify-content:space-between;gap:4px;padding:5px 7px;font-size:9px}
+.attraction-photo figcaption button{border:0;background:none;padding:0;font:inherit;color:color-mix(in srgb,var(--ink) 70%,transparent);cursor:pointer;text-decoration:underline;text-underline-offset:2px}
+.attraction-photo-remove{color:#a54c4c}
+.photo-viewer{border:0;background:transparent;padding:0;max-width:min(92vw,940px);overflow:visible}
+.photo-viewer::backdrop{background:#27211999}
+.photo-viewer img{display:block;max-width:100%;max-height:86vh;border-radius:14px;box-shadow:0 24px 60px #0006}
+.photo-viewer .dialog-close{position:absolute;top:-14px;right:-14px;width:34px;height:34px;border-radius:50%;background:var(--paper);color:var(--ink);display:grid;place-items:center;font-size:22px;line-height:1;cursor:pointer;border:0;box-shadow:0 4px 12px #0004}
+@media(max-width:620px){.travel-add-attraction{width:100%;height:44px}.attraction-photo-open img{height:68px}.attraction-dialog{width:calc(100vw - 20px)}}

@@ -76,6 +76,7 @@
               <p class="travel-sub">Collect places. Plan adventures. Keep memories.</p>
             </div>
             <div class="travel-actions">
+              <button class="outline-btn travel-add-attraction" id="addAttraction" type="button">＋ 添加景点</button>
               <button class="primary-btn" id="addDestination" type="button">＋ 添加地点</button>
             </div>
           </header>
@@ -138,6 +139,39 @@
           <button class="primary-btn" id="saveTravelDestination" type="submit">添加</button>
         </div>
       </form>
+    </dialog>
+    <dialog class="calendar-dialog attraction-dialog" id="attractionDialog" aria-labelledby="attractionDialogTitle">
+      <form class="calendar-note-form" id="attractionForm">
+        <div class="dialog-heading">
+          <div><p class="eyebrow">ATTRACTION</p><h2 id="attractionDialogTitle">添加景点</h2></div>
+          <button class="dialog-close" id="closeAttractionDialog" type="button" aria-label="关闭">×</button>
+        </div>
+        <label for="attractionDestination">所属目的地</label>
+        <select id="attractionDestination" required></select>
+        <label for="attractionName">景点名称</label>
+        <input id="attractionName" type="text" maxlength="120" required placeholder="例如：Mount Fuji" />
+        <label for="attractionLocation">地点</label>
+        <input id="attractionLocation" type="text" maxlength="160" placeholder="例如：Yamanashi, Japan" />
+        <label for="attractionDescription">简介</label>
+        <textarea id="attractionDescription" rows="3" maxlength="800" placeholder="这个景点是什么样子？"></textarea>
+        <label for="attractionNote">个人笔记</label>
+        <textarea id="attractionNote" rows="3" maxlength="800" placeholder="你的回忆，或者想去的原因…"></textarea>
+        <label class="attraction-upload" for="attractionPhotos">添加照片（可一次选多张）
+          <input id="attractionPhotos" type="file" accept="image/jpeg,image/png,image/webp" multiple />
+        </label>
+        <p class="attraction-hint">支持 JPG、PNG、WebP。点照片可看大图，点「设为封面」更换封面。</p>
+        <div class="attraction-gallery" id="attractionGallery"></div>
+        <div class="dialog-actions">
+          <button class="text-button delete-calendar-note" id="deleteAttraction" type="button">删除景点</button>
+          <span></span>
+          <button class="outline-btn" id="cancelAttraction" type="button">取消</button>
+          <button class="primary-btn" type="submit">保存</button>
+        </div>
+      </form>
+    </dialog>
+    <dialog class="photo-viewer" id="photoViewer" aria-label="查看大图">
+      <button class="dialog-close" id="closePhotoViewer" type="button" aria-label="关闭">×</button>
+      <img id="photoViewerImage" alt="景点照片大图" />
     </dialog>
     <div class="toast" id="toast"></div>
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
