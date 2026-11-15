@@ -239,7 +239,7 @@ function renderNotes() {
   const folderMarkup = folders.map(item => {
     const id = escapeHtml(item.id);
     const name = escapeHtml(item.name);
-    return '<article class="note-folder"><button class="note-folder-open" type="button" data-open-folder="' + id + '" aria-label="打开文件夹：' + name + '"><span aria-hidden="true">' + escapeHtml(item.icon) + '</span><b>' + name + '</b></button><button class="note-folder-edit" type="button" data-edit-folder="' + id + '" aria-label="编辑文件夹：' + name + '">•••</button></article>';
+    return '<article class="note-folder"><button class="note-folder-open" type="button" data-open-folder="' + id + '" aria-label="打开文件夹：' + name + '"><span aria-hidden="true">' + escapeHtml(item.icon) + '</span><b>' + name + '</b></button><button class="note-folder-edit" type="button" data-edit-folder="' + id + '" aria-label="编辑文件夹：' + name + '">•••</button><button class="note-folder-delete" type="button" data-delete-folder="' + id + '" aria-label="删除文件夹：' + name + '" title="删除文件夹">×</button></article>';
   }).join('');
   const noteMarkup = notes.map(item => {
     const id = escapeHtml(item.id);
@@ -1190,6 +1190,8 @@ document.addEventListener('click', event => {
   if (openNote) { activeNoteId = openNote.dataset.openNote; renderNotes(); return; }
   const editFolder = event.target.closest('[data-edit-folder]');
   if (editFolder) { openFolderDialog(editFolder.dataset.editFolder); return; }
+  const deleteFolder = event.target.closest('[data-delete-folder]');
+  if (deleteFolder) { deleteFolderById(deleteFolder.dataset.deleteFolder); return; }
 });
 
 document.querySelector('#folderForm').addEventListener('submit', event => {
@@ -1199,12 +1201,19 @@ document.querySelector('#folderForm').addEventListener('submit', event => {
   if (folder) { folder.name = name; folder.icon = icon; } else noteStore.folders.push({ id: newId(), parentId: currentFolderId, name, icon });
   saveNotes(); renderNotes(); document.querySelector('#folderDialog').close(); show('文件夹已保存');
 });
-document.querySelector('#deleteFolder').addEventListener('click', () => {
-  if (!editingFolderId || !confirm('删除该文件夹及其中内容？此操作无法撤销。')) return;
-  const ids = new Set([editingFolderId]); let changed = true;
+// 删除文件夹（含子文件夹和里面的笔记）；文件夹行上的“×”和编辑窗口里的“删除文件夹”共用这段
+function deleteFolderById(folderId) {
+  if (!folderId || !confirm('删除该文件夹及其中内容？此操作无法撤销。')) return false;
+  const ids = new Set([folderId]); let changed = true;
   while (changed) { changed = false; noteStore.folders.forEach(folder => { if (ids.has(folder.parentId) && !ids.has(folder.id)) { ids.add(folder.id); changed = true; } }); }
   noteStore.folders = noteStore.folders.filter(folder => !ids.has(folder.id)); noteStore.notes = noteStore.notes.filter(note => !ids.has(note.folderId));
-  currentFolderId = null; activeNoteId = null; saveNotes(); renderNotes(); document.querySelector('#folderDialog').close(); show('文件夹已删除');
+  if (ids.has(currentFolderId)) currentFolderId = null;
+  if (!noteStore.notes.some(note => note.id === activeNoteId)) activeNoteId = null;
+  saveNotes(); renderNotes(); show('文件夹已删除');
+  return true;
+}
+document.querySelector('#deleteFolder').addEventListener('click', () => {
+  if (deleteFolderById(editingFolderId)) document.querySelector('#folderDialog').close();
 });
 ['closeFolderDialog', 'cancelFolderDialog'].forEach(id => document.querySelector('#' + id).addEventListener('click', () => document.querySelector('#folderDialog').close()));
 document.querySelector('#folderDialog').addEventListener('click', event => { if (event.target === event.currentTarget) event.currentTarget.close(); });

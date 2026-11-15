@@ -167,7 +167,7 @@
 @media(max-width:900px){.travel-panel{max-height:380px}}
 /* ===== 专注模式（Focus Mode）：参考图的奶油白 + 灰玫瑰衬线风格 ===== */
 .fm-page{--fm-rose:color-mix(in srgb,var(--primary) 62%,#8E6C79);--fm-rose-soft:color-mix(in srgb,var(--primary) 38%,var(--card));--fm-rose-line:color-mix(in srgb,var(--primary) 70%,var(--card));--fm-ink:#2E2A28;--fm-muted:#8A727B;--fm-serif:Georgia,"Times New Roman","Songti SC",serif;font-family:var(--fm-serif);padding:0 26px 44px}
-.fm-head{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;padding:32px 0 20px}
+.fm-head{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;padding:22px 0 14px}
 .fm-eyebrow{font:700 11px/1.3 ui-sans-serif,system-ui,sans-serif;letter-spacing:.18em;color:#7C6F70;margin:0}
 .fm-title{font:400 clamp(46px,6.4vw,76px)/1.02 var(--fm-serif);letter-spacing:-.015em;color:var(--fm-ink);margin:8px 0 0}
 .fm-sub{font:italic 400 clamp(15px,1.7vw,19px)/1.4 var(--fm-serif);color:var(--fm-muted);margin:12px 0 0}
@@ -378,3 +378,59 @@
 .page .compact-page-title,.page .tk-title,.page .fm-title,.page .travel-title,.page .welcome-line{font:500 clamp(28px,3.2vw,36px)/1.15 Georgia,"Times New Roman",serif;letter-spacing:-.01em;margin:8px 0 0}
 .page .welcome-line span{font-size:.72em;color:var(--primary)}
 .page .tk-sub,.page .fm-sub,.page .travel-sub{font:italic 400 14px/1.5 Georgia,"Times New Roman",serif;color:var(--muted);margin:10px 0 0}
+
+/* 专注模式：整体缩小字体、间距和卡片，和其他页面的大小保持一致（只作用在 .fm-page 里） */
+.fm-page{padding:0 26px 30px}
+.fm-grid{gap:16px 22px}
+.fm-timer{gap:16px;padding-top:0}
+.fm-ring{width:min(100%,280px)}
+.fm-ring-inner{gap:10px}
+.fm-time{font-size:clamp(38px,19cqw,54px)}
+.fm-start{font-size:14px;padding:9px 22px;border-radius:14px;gap:8px;box-shadow:0 8px 16px color-mix(in srgb,var(--fm-rose) 35%,transparent)}
+.fm-start .fm-ico{width:14px;height:14px}
+.fm-reset{font-size:12px}
+.fm-modes{gap:8px}
+.fm-mode{gap:8px;padding:8px 12px;max-width:150px}
+.fm-mode-icon{width:20px;height:20px}
+.fm-mode-text b{font-size:13px}
+.fm-mode-text small{font-size:11px}
+.fm-custom-edit input{width:40px;font-size:12px}
+.fm-custom-edit i{font-size:11px}
+.fm-lock-hint{font-size:12px;margin-top:-6px}
+.fm-pill-btn{font-size:13px;padding:9px 16px}
+.fm-card{padding:16px 20px;border-radius:20px;box-shadow:0 8px 20px #6f58511a}
+.fm-card-head{margin-bottom:10px}
+.fm-card-title{font-size:16px;gap:10px}
+.fm-card-title .fm-ico{width:18px;height:18px}
+.fm-link{font-size:12px}
+.fm-task-card{gap:12px}
+.fm-task-box{padding:12px 14px;gap:12px;border-radius:16px}
+.fm-task-check{width:26px;height:26px}
+.fm-task-box.is-done .fm-task-check:after{font-size:13px}
+.fm-task-name{font-size:15px}
+.fm-task-empty .fm-task-name{font-size:14px}
+.fm-edit{width:28px;height:28px}
+.fm-edit .fm-ico{width:16px;height:16px}
+.fm-time-row{font-size:14px;gap:8px;padding:0 4px 10px}
+.fm-time-row .fm-ico{width:18px;height:18px}
+.fm-quote{min-height:96px;border-radius:16px;padding:16px 96px 16px 18px}
+.fm-quote p{font-size:14px}
+.fm-botanical{width:80px;height:100px}
+.fm-days{gap:8px;padding:0}
+.fm-day{gap:3px}
+.fm-day-bar{width:clamp(26px,3vw,34px);height:clamp(48px,5vw,64px);border-radius:9px;margin-bottom:3px}
+.fm-day b{font-size:13px}
+.fm-day small{font-size:11px}
+.fm-day strong{font-size:15px;margin-top:1px}
+.fm-badges{gap:8px}
+.fm-badge{gap:3px}
+.fm-badge-icon{width:clamp(44px,4.6vw,56px);height:clamp(44px,4.6vw,56px);margin-bottom:3px}
+.fm-badge b{font-size:14px}
+.fm-badge small{font-size:11px}
+.fm-badge em{font-size:11px}
+
+/* 笔记页：文件夹行右侧的“×”删除按钮（一直可见，方便点击） */
+.note-folder{align-items:center;gap:4px}
+.note-folder>.note-folder-edit,.note-folder>.note-folder-delete{flex:none}
+.note-folder-delete{border:0;background:none;color:var(--muted);cursor:pointer;font:400 16px/1 ui-monospace,monospace;border-radius:7px;padding:4px 8px}
+.note-folder-delete:hover{color:var(--ink);background:color-mix(in srgb,var(--primary) 28%,transparent)}

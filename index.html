@@ -71,6 +71,16 @@
         .fm-day-bar { width: 30px; height: 48px; }
         .fm-badge-icon { width: 50px; height: 50px; }
       }
+
+      /* 笔记模块保留已有文件夹内容，只移除新建和管理入口。 */
+      .notes-page #addFolder,
+      .notes-page .note-folder-edit,
+      #folderDialog { display: none !important; }
+      .notes-page .notes-path [data-notes-parent] { order: -1; margin-left: 0; }
+      .notes-page .note-item-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; align-items: stretch; }
+      .notes-page .note-item { width: 100%; min-width: 0; }
+      .notes-page .note-delete { align-self: center; border: 0; border-radius: 8px; padding: 8px 10px; background: color-mix(in srgb, var(--primary) 20%, var(--card)); color: var(--ink); font: inherit; font-size: 12px; cursor: pointer; }
+      .notes-page .note-delete:hover { background: color-mix(in srgb, var(--primary) 45%, var(--card)); }
     </style>
   </head>
   <body>
@@ -355,5 +365,50 @@
     <div class="toast" id="toast"></div>
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="./app.js"></script>
+    <script>
+      document.querySelector('#addFolder')?.remove();
+      document.querySelector('#folderDialog')?.remove();
+      const notesItems = document.querySelector('#notesItems');
+      const updateEmptyNotesMessage = () => {
+        const empty = notesItems?.querySelector('.notes-empty');
+        if (empty) empty.textContent = '这里还没有内容。点击“新建笔记”开始记录。';
+      };
+      if (notesItems) {
+        new MutationObserver(updateEmptyNotesMessage).observe(notesItems, { childList: true });
+        updateEmptyNotesMessage();
+
+        const addDeleteButtons = () => {
+          notesItems.querySelectorAll('[data-open-note]').forEach(noteButton => {
+            if (noteButton.parentElement?.classList.contains('note-item-row')) return;
+            const row = document.createElement('div');
+            row.className = 'note-item-row';
+            const deleteButton = document.createElement('button');
+            deleteButton.type = 'button';
+            deleteButton.className = 'note-delete';
+            deleteButton.dataset.deleteNote = noteButton.dataset.openNote;
+            deleteButton.setAttribute('aria-label', '删除笔记');
+            deleteButton.textContent = '删除';
+            noteButton.before(row);
+            row.append(noteButton, deleteButton);
+          });
+        };
+        new MutationObserver(addDeleteButtons).observe(notesItems, { childList: true });
+        addDeleteButtons();
+
+        notesItems.addEventListener('click', event => {
+          const deleteButton = event.target.closest('[data-delete-note]');
+          if (!deleteButton) return;
+          event.preventDefault();
+          event.stopPropagation();
+          const noteId = deleteButton.dataset.deleteNote;
+          if (!noteStore.notes.some(note => note.id === noteId) || !confirm('删除这篇笔记？此操作无法撤销。')) return;
+          noteStore.notes = noteStore.notes.filter(note => note.id !== noteId);
+          if (activeNoteId === noteId) activeNoteId = null;
+          saveNotes();
+          renderNotes();
+          show('笔记已删除');
+        });
+      }
+    </script>
   </body>
 </html>
