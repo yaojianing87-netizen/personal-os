@@ -527,7 +527,6 @@ function renderTravelStats() {
       }).join('')
       : '<p class="travel-list-empty">' + TRAVEL_EMPTY_TEXT[status] + '</p>';
   });
-  document.querySelector('#travelEmpty').hidden = travelDestinations.length > 0;
   hydrateAttractionCovers();
 }
 
@@ -1055,7 +1054,6 @@ document.querySelector('.travel-stats').addEventListener('focusout', event => {
 });
 
 document.querySelector('#addDestination').addEventListener('click', () => openTravelDialog());
-document.querySelector('#addDestinationEmpty').addEventListener('click', () => openTravelDialog());
 document.querySelector('.travel-stats').addEventListener('click', event => {
   const todoEdit = event.target.closest('[data-todo-edit]');
   if (todoEdit) { editingTodoId = todoEdit.dataset.todoEdit; renderTravelStats(); document.querySelector('[data-todo-input]')?.focus(); return; }
@@ -1567,9 +1565,18 @@ document.querySelector('#wallpaperInput').addEventListener('change', event => {
   const reader = new FileReader();
   reader.onload = () => {
     root.style.setProperty('--wallpaper-image', 'url(' + reader.result + ')');
+    document.querySelector('#clearWallpaper').hidden = false;
     show('壁纸仅在当前浏览器会话中预览');
   };
   reader.readAsDataURL(file);
+});
+
+// 删除当前壁纸，回到干净的纸张背景
+document.querySelector('#clearWallpaper').addEventListener('click', () => {
+  root.style.removeProperty('--wallpaper-image');
+  document.querySelector('#wallpaperInput').value = '';
+  document.querySelector('#clearWallpaper').hidden = true;
+  show('已删除壁纸');
 });
 
 /* 今日重点：标题、描述可直接编辑，进度可拖动，都会自动保存 */

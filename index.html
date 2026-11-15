@@ -179,12 +179,6 @@
             </article>
           </section>
           <section class="travel-map-card" aria-label="世界地图">
-            <div class="travel-empty" id="travelEmpty" hidden>
-              <span aria-hidden="true">✈</span>
-              <h2>还没有任何地点</h2>
-              <p>搜索一个城市或国家，把它加到你的旅行地图上吧。</p>
-              <button class="primary-btn" id="addDestinationEmpty" type="button">＋ 添加地点</button>
-            </div>
             <div id="travelMap" class="travel-map"></div>
             <p class="travel-map-hint">点击地图上的标记可以查看地点；用「添加地点」搜索并保存新的目的地。地图数据来自 OpenStreetMap。</p>
           </section>
@@ -194,7 +188,7 @@
           <section class="appearance-layout"><div class="appearance-main">
             <section class="setting-section"><div class="section-title"><span>01</span><div><h2>主题预设</h2><p>选择一个温柔的起点，再按自己的心意调节。</p></div></div><div class="theme-grid" id="themeGrid"></div></section>
             <section class="setting-section"><div class="section-title"><span>02</span><div><h2>颜色与纸张</h2><p>所有颜色都会同步到整个工作台。</p></div></div><div class="color-grid"><label>纸张背景<input type="color" data-token="paper" /></label><label>卡片颜色<input type="color" data-token="card" /></label><label>深色文字<input type="color" data-token="ink" /></label><label>主色调<input type="color" data-token="primary" /></label><label>强调颜色<input type="color" data-token="accent" /></label></div></section>
-            <section class="setting-section"><div class="section-title"><span>03</span><div><h2>壁纸氛围</h2><p>使用本地图片，或让纯净的纸张保持呼吸。</p></div></div><label class="wallpaper-picker"><input type="file" id="wallpaperInput" accept="image/*" /><span>＋</span><b>选择本地壁纸</b><small>PNG、JPG 或 WEBP</small></label><div class="range-list"><label>壁纸模糊 <output id="blurValue">0 px</output><input type="range" data-setting="blur" min="0" max="24" value="0" /></label><label>遮罩透明度 <output id="overlayValue">70%</output><input type="range" data-setting="overlay" min="10" max="95" value="70" /></label><label>壁纸明暗 <output id="brightnessValue">100%</output><input type="range" data-setting="brightness" min="40" max="140" value="100" /></label><label>卡片透明度 <output id="cardAlphaValue">92%</output><input type="range" data-setting="cardAlpha" min="55" max="100" value="92" /></label></div></section>
+            <section class="setting-section"><div class="section-title"><span>03</span><div><h2>壁纸氛围</h2><p>使用本地图片，或让纯净的纸张保持呼吸。</p></div></div><label class="wallpaper-picker"><input type="file" id="wallpaperInput" accept="image/*" /><span>＋</span><b>选择本地壁纸</b><small>PNG、JPG 或 WEBP</small></label><button class="wallpaper-clear" id="clearWallpaper" type="button" hidden>删除当前壁纸</button><div class="range-list"><label>壁纸模糊 <output id="blurValue">0 px</output><input type="range" data-setting="blur" min="0" max="24" value="0" /></label><label>遮罩透明度 <output id="overlayValue">70%</output><input type="range" data-setting="overlay" min="10" max="95" value="70" /></label><label>壁纸明暗 <output id="brightnessValue">100%</output><input type="range" data-setting="brightness" min="40" max="140" value="100" /></label><label>卡片透明度 <output id="cardAlphaValue">92%</output><input type="range" data-setting="cardAlpha" min="55" max="100" value="92" /></label></div></section>
           </div><aside class="preview-pane"><p class="eyebrow">LIVE PREVIEW</p><div class="mini-preview"><div class="mini-nav"><i></i><i></i><i></i><i></i></div><div class="mini-board"><b>今天，慢一点也没关系。</b><span></span><span></span><span></span></div></div><div class="contrast-status" id="contrastStatus"><span>✓</span><div><b>阅读对比度良好</b><p>系统会自动选择清晰的文字颜色。</p></div></div></aside></section>
         </div>
       </section>
