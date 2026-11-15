@@ -278,6 +278,8 @@
 
 /* 任务：MEDIUM 优先级 + 独立的 PERSONAL 类别标签 */
 .task-badges{display:flex;flex-wrap:nowrap;gap:4px;align-items:center;white-space:nowrap}
+.tk-row-delete{display:inline-grid;place-items:center;width:20px;height:20px;border:0;border-radius:6px;background:none;color:var(--muted);font:400 14px/1 ui-monospace,monospace;cursor:pointer;padding:0}
+.tk-row-delete:hover{background:color-mix(in srgb,var(--ink) 10%,transparent);color:var(--ink)}
 .priority-medium{background:#F4DEB7;color:#6B5320}
 .task-dialog .task-personal{display:flex;align-items:center;gap:8px;font-size:12px;font-weight:700;margin-top:2px;cursor:pointer}
 .task-dialog .task-personal input{width:auto;margin:0;accent-color:var(--ink)}
@@ -312,11 +314,15 @@
 .tk-sort{display:inline-flex;align-items:center;gap:8px;font-size:11px;color:var(--muted)}
 .tk-sort select{border:1px solid color-mix(in srgb,var(--ink) 14%,transparent);border-radius:9px;background:var(--card);color:var(--ink);font:inherit;font-size:11px;padding:6px 8px;outline-color:var(--primary);cursor:pointer}
 .tk-group{margin-top:6px}
-.tk-group-head{display:flex;align-items:center;gap:9px;width:100%;border:0;background:none;color:var(--ink);font:600 14px inherit;padding:13px 4px;cursor:pointer;text-align:left}
+.tk-group-top{display:flex;align-items:center;gap:4px}
+.tk-group-head{display:flex;align-items:center;gap:9px;flex:1;min-width:0;border:0;background:none;color:var(--ink);font:600 14px inherit;padding:13px 4px;cursor:pointer;text-align:left}
+.tk-group-add{display:inline-grid;place-items:center;width:26px;height:26px;border:1px solid color-mix(in srgb,var(--ink) 14%,transparent);border-radius:8px;background:var(--card);color:var(--muted);font-family:inherit;font-size:15px;line-height:1;cursor:pointer;flex:none}
+.tk-group-add:hover{color:var(--ink);border-color:color-mix(in srgb,var(--ink) 28%,transparent)}
 .tk-group-head em{font:700 10px ui-monospace,monospace;font-style:normal;color:var(--muted);background:color-mix(in srgb,var(--ink) 7%,transparent);border-radius:999px;padding:2px 7px}
 .tk-chevron{display:inline-grid;place-items:center;width:18px;color:var(--muted);transition:transform .16s;font-size:13px}
 .tk-group.is-collapsed .tk-chevron{transform:rotate(-90deg)}
 .tk-group-body{display:grid;gap:2px}
+.tk-group-empty{margin:0;padding:10px 10px 14px 31px;color:var(--muted);font-size:12px}
 .tk-group.is-collapsed .tk-group-body{display:none}
 .tk-row{display:grid;grid-template-columns:20px minmax(0,1fr) auto;align-items:center;gap:12px;padding:14px 10px;border-radius:12px;border-bottom:1px solid color-mix(in srgb,var(--ink) 7%,transparent);transition:background .15s}
 .tk-row:last-child{border-bottom:0}
@@ -364,3 +370,9 @@
 .tk-stat span{font-size:10.5px;color:var(--muted)}
 @media(max-width:1000px){.tk-layout{grid-template-columns:1fr}.tk-rail{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:620px){.tasks-page{padding:0 14px 28px}.tk-head{padding:20px 0 14px}.tk-summary{grid-template-columns:1fr;gap:10px}.tk-metric{padding:16px 18px}.tk-metric b{font-size:28px}.tk-list-card{padding:14px 12px}.tk-rail{grid-template-columns:1fr}.tk-row{padding:12px 6px}.tk-toolbar{gap:8px}}
+
+/* 各版面左上角标题：统一成同一种字体、大小和行距，让每个页面开头看起来一致 */
+.page .eyebrow,.page .fm-eyebrow{font:700 10px/1.3 ui-monospace,monospace;letter-spacing:.14em;color:var(--muted)}
+.page .compact-page-title,.page .tk-title,.page .fm-title,.page .travel-title,.page .welcome-line{font:500 clamp(28px,3.2vw,36px)/1.15 Georgia,"Times New Roman",serif;letter-spacing:-.01em;margin:8px 0 0}
+.page .welcome-line span{font-size:.72em;color:var(--primary)}
+.page .tk-sub,.page .fm-sub,.page .travel-sub{font:italic 400 14px/1.5 Georgia,"Times New Roman",serif;color:var(--muted);margin:10px 0 0}

@@ -374,13 +374,21 @@ function updateTaskCount() {
   document.querySelector('#taskSummary').textContent = remaining ? '还有 ' + remaining + ' 项任务等待完成。' : '今天的任务已全部完成。';
 }
 
-function openTaskDialog(taskId = null) {
+const TASK_GROUP_LABELS = { today: '今天', week: '本周', later: '之后' };
+// 从某一组点“＋”新建时，先填好一个能落在这一组里的日期
+function taskGroupDefaultDue(group) {
+  if (group === 'later') return '';
+  const due = new Date();
+  if (group === 'week') due.setDate(due.getDate() + 1);
+  return toDateKey(due);
+}
+function openTaskDialog(taskId = null, presetGroup = null) {
   editingTaskId = taskId;
   const task = taskId ? tasks.find(item => item.id === taskId) : null;
-  document.querySelector('#taskDialogTitle').textContent = task ? '编辑任务' : '新建任务';
+  document.querySelector('#taskDialogTitle').textContent = task ? '编辑任务' : (presetGroup ? '新建任务 · ' + TASK_GROUP_LABELS[presetGroup] : '新建任务');
   document.querySelector('#taskTitleInput').value = task ? task.title : '';
   document.querySelector('#taskPriorityInput').value = task ? task.priority : 'LOW';
-  document.querySelector('#taskDueInput').value = task ? task.dueDate : toDateKey(new Date());
+  document.querySelector('#taskDueInput').value = task ? task.dueDate : (presetGroup ? taskGroupDefaultDue(presetGroup) : toDateKey(new Date()));
   document.querySelector('#taskCategoryInput').value = task ? task.category : '';
   document.querySelector('#deleteTask').hidden = !task;
   document.querySelector('#taskDialog').showModal();
@@ -1276,12 +1284,18 @@ function taskWeekRange() {
   end.setDate(start.getDate() + 6);
   return { start: toDateKey(start), end: toDateKey(end) };
 }
-// 今天（含已过期）、本周、之后；没有截止日期的算“之后”
+// “本周”按接下来 7 天算：这样不管今天是星期几，都能往“本周”里加任务
+function taskRollingWeekEnd() {
+  const end = new Date();
+  end.setDate(end.getDate() + 7);
+  return toDateKey(end);
+}
+// 今天（含已过期）、本周（接下来 7 天）、之后；没有截止日期的算“之后”
 function taskBucket(task) {
   if (!task.dueDate) return 'later';
   const today = taskTodayKey();
   if (task.dueDate <= today) return 'today';
-  if (task.dueDate <= taskWeekRange().end) return 'week';
+  if (task.dueDate <= taskRollingWeekEnd()) return 'week';
   return 'later';
 }
 function taskMatchesFilter(task) {
@@ -1310,7 +1324,8 @@ function taskRowMarkup(task) {
   return '<article class="tk-row' + (task.completed ? ' done' : '') + '" data-task-id="' + escapeHtml(task.id) + '">' +
     '<label class="task-check"><input type="checkbox" data-task-toggle ' + (task.completed ? 'checked' : '') + ' aria-label="标记“' + escapeHtml(task.title) + '”完成"><span></span></label>' +
     '<button class="tk-row-title" type="button" data-edit-task>' + escapeHtml(task.title) + '</button>' +
-    '<div class="task-badges"><button type="button" class="task-priority priority-' + task.priority.toLowerCase() + '" data-edit-task aria-label="编辑“' + escapeHtml(task.title) + '”的优先级">' + task.priority + '</button>' + taskCategoryBadge(task) + '</div>' +
+    '<div class="task-badges"><button type="button" class="task-priority priority-' + task.priority.toLowerCase() + '" data-edit-task aria-label="编辑“' + escapeHtml(task.title) + '”的优先级">' + task.priority + '</button>' + taskCategoryBadge(task) +
+    '<button type="button" class="tk-row-delete" data-tk-delete aria-label="删除“' + escapeHtml(task.title) + '”" title="删除">×</button></div>' +
     '</article>';
 }
 
@@ -1340,26 +1355,38 @@ function renderTasksPage() {
   const groups = { today: [], week: [], later: [] };
   tasks.filter(taskMatchesFilter).forEach(task => groups[taskBucket(task)].push(task));
   const comparator = taskViewComparator();
-  const labels = { today: '今天', week: '本周', later: '之后' };
+  const labels = TASK_GROUP_LABELS;
   const sections = Object.keys(groups).map(key => {
     const items = [...groups[key]].sort(comparator);
-    if (!items.length) return '';
+    // “本周”分组始终显示，方便看到本周安排了哪些任务（空的时候给一句提示）
+    if (!items.length && key !== 'week') return '';
     const collapsed = taskGroupsCollapsed[key];
+    const body = items.length
+      ? items.map(taskRowMarkup).join('')
+      : '<p class="tk-group-empty">' + (taskFilter === 'all' ? '本周还没有任务。' : '这个筛选下没有本周任务。') + '</p>';
     return '<section class="tk-group' + (collapsed ? ' is-collapsed' : '') + '">' +
+      '<div class="tk-group-top">' +
       '<button type="button" class="tk-group-head" data-tk-group="' + key + '" aria-expanded="' + !collapsed + '">' +
       '<span class="tk-chevron" aria-hidden="true">⌄</span>' + labels[key] + '<em>' + items.length + '</em></button>' +
-      '<div class="tk-group-body">' + items.map(taskRowMarkup).join('') + '</div></section>';
+      '<button type="button" class="tk-group-add" data-tk-add="' + key + '" aria-label="在“' + labels[key] + '”中新建任务" title="在“' + labels[key] + '”中新建任务">＋</button>' +
+      '</div>' +
+      '<div class="tk-group-body">' + body + '</div></section>';
   }).join('');
   list.innerHTML = sections || '<p class="tasks-empty">' + (tasks.length ? '这个筛选下没有任务。' : '还没有任务。点击「新建任务」开始吧。') + '</p>';
 
-  // 本周进度（按截止日期落在本周的任务计算）
+  // 本周进度：按左侧“今天”和“本周”两组的任务算完成情况
+  const progressTasks = tasks.filter(task => taskBucket(task) !== 'later');
+  const progressDone = progressTasks.filter(task => task.completed).length;
+  const progressPercent = progressTasks.length ? Math.round((progressDone / progressTasks.length) * 100) : 0;
+  document.getElementById('tkWeekCount').textContent = progressDone + ' / ' + progressTasks.length;
+  document.getElementById('tkWeekBar').style.width = progressPercent + '%';
+  document.getElementById('tkWeekPercent').textContent = progressPercent + '%';
+  document.getElementById('tkWeekHint').textContent = progressTasks.length ? '今天与本周任务的完成情况' : '本周还没有安排任务';
+
+  // 任务统计（这部分保持原样：仍按截止日期落在本周的任务计算）
   const weekTasks = tasks.filter(task => task.dueDate && task.dueDate >= start && task.dueDate <= end);
   const weekDone = weekTasks.filter(task => task.completed).length;
   const percent = weekTasks.length ? Math.round((weekDone / weekTasks.length) * 100) : 0;
-  document.getElementById('tkWeekCount').textContent = weekDone + ' / ' + weekTasks.length;
-  document.getElementById('tkWeekBar').style.width = percent + '%';
-  document.getElementById('tkWeekPercent').textContent = percent + '%';
-  document.getElementById('tkWeekHint').textContent = weekTasks.length ? '本周任务的完成情况' : '本周还没有安排任务';
 
   // 今日重点：直接复用任务数据里的 focus 标记
   const focusTasks = tasks.filter(task => task.focus);
@@ -1412,6 +1439,27 @@ function initTasksPageDom() {
     renderTasksPage();
   });
   document.getElementById('tasksPageList').addEventListener('click', event => {
+    // 每组右上角的“＋”：直接在这一组里新建任务
+    const addBtn = event.target.closest('[data-tk-add]');
+    if (addBtn) {
+      taskFilter = 'all'; // 先回到“全部”，新建的任务保存后才看得见
+      renderTasksPage();
+      openTaskDialog(null, addBtn.dataset.tkAdd);
+      return;
+    }
+    // 每行最后的“×”：删除这条任务
+    const delBtn = event.target.closest('[data-tk-delete]');
+    if (delBtn) {
+      const row = delBtn.closest('[data-task-id]');
+      const task = row && tasks.find(item => item.id === row.dataset.taskId);
+      if (!task || !confirm('删除任务「' + task.title + '」？此操作无法撤销。')) return;
+      tasks = tasks.filter(item => item.id !== task.id);
+      if (editingTaskId === task.id) editingTaskId = null;
+      saveTasks();
+      renderTasks();
+      show('任务已删除');
+      return;
+    }
     const head = event.target.closest('[data-tk-group]');
     if (!head) return;
     const key = head.dataset.tkGroup;
