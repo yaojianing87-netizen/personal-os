@@ -1629,7 +1629,7 @@ applyFocus();
 const FM_SESSIONS_KEY = 'atelier-focus-sessions';
 const FM_TIMER_KEY = 'atelier-focus-timer';
 const FM_SETTINGS_KEY = 'atelier-focus-settings';
-const FM_MODES = { pomodoro: { label: 'Pomodoro', minutes: 25 }, deep: { label: 'Deep Work', minutes: 50 }, custom: { label: 'Custom', minutes: 30 } };
+const FM_MODES = { pomodoro: { label: '番茄钟', minutes: 25 }, deep: { label: '深度工作', minutes: 50 }, custom: { label: '自定义', minutes: 30 } };
 const FM_RING = 2 * Math.PI * 140;
 const FM_ICONS = {
   play: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4.5v15l12-7.5z" fill="currentColor"/></svg>',
@@ -1643,9 +1643,9 @@ const FM_ICONS = {
   botanical: '<svg viewBox="0 0 120 150" aria-hidden="true"><g fill="none" stroke="#B88F98" stroke-width="1.4" stroke-linecap="round"><path d="M62 148C60 112 66 84 80 52"/><path d="M62 120C48 112 38 100 34 84"/><path d="M64 100C80 92 92 80 96 64"/><path d="M70 78C60 68 52 58 50 44"/><path d="M76 62C88 56 98 46 102 32"/></g><g fill="#D8B2BA" opacity=".85"><circle cx="80" cy="50" r="5"/><circle cx="74" cy="44" r="4"/><circle cx="86" cy="42" r="4.5"/><circle cx="102" cy="30" r="5"/><circle cx="96" cy="24" r="3.6"/><circle cx="108" cy="26" r="3.6"/><circle cx="50" cy="42" r="4.6"/><circle cx="44" cy="48" r="3.6"/><circle cx="34" cy="82" r="4.2"/><circle cx="96" cy="62" r="4.4"/><circle cx="90" cy="68" r="3.4"/></g><g fill="#C9A4AB" opacity=".7"><ellipse cx="42" cy="104" rx="7" ry="3.6" transform="rotate(-35 42 104)"/><ellipse cx="86" cy="104" rx="7" ry="3.6" transform="rotate(30 86 104)"/><ellipse cx="54" cy="130" rx="6" ry="3.2" transform="rotate(-30 54 130)"/></g></svg>'
 };
 const FM_ACHIEVEMENTS = [
-  { id: 'beginner', name: 'Beginner', need: 1, icon: 'plant', tone: 'green' },
-  { id: 'consistent', name: 'Consistent', need: 5, icon: 'star', tone: 'yellow' },
-  { id: 'master', name: 'Focus Master', need: 25, icon: 'crown', tone: 'beige' }
+  { id: 'beginner', name: '入门', need: 1, icon: 'plant', tone: 'green' },
+  { id: 'consistent', name: '坚持', need: 5, icon: 'star', tone: 'yellow' },
+  { id: 'master', name: '专注大师', need: 25, icon: 'crown', tone: 'beige' }
 ];
 
 function fmReadJson(key, fallback) {
@@ -1756,7 +1756,7 @@ function fmComplete() {
   fmTimer = loadFmTimerIdle();
   fmSave();
   const unlocked = FM_ACHIEVEMENTS.find(item => item.need === fmSessions.length && before < item.need);
-  show(unlocked ? '专注完成！解锁成就「' + unlocked.name + '」' : '专注完成！已记录到 Focus History');
+  show(unlocked ? '专注完成！解锁成就「' + unlocked.name + '」' : '专注完成！已记录到专注记录');
   fmRender();
 }
 function fmTick() {
@@ -1777,7 +1777,7 @@ function fmRenderTimer() {
   dot.setAttribute('cx', (160 + 140 * Math.sin(angle)).toFixed(2));
   dot.setAttribute('cy', (160 - 140 * Math.cos(angle)).toFixed(2));
   const start = document.querySelector('#fmStart');
-  const label = fmTimer.status === 'running' ? 'Pause' : fmTimer.status === 'paused' ? 'Resume' : 'Start Focus';
+  const label = fmTimer.status === 'running' ? '暂停' : fmTimer.status === 'paused' ? '继续' : '开始专注';
   const icon = fmTimer.status === 'running' ? FM_ICONS.pause : FM_ICONS.play;
   const markup = '<span class="fm-ico">' + icon + '</span>' + label;
   if (start.dataset.state !== fmTimer.status) { start.innerHTML = markup; start.dataset.state = fmTimer.status; }
@@ -1793,7 +1793,7 @@ function fmRenderTimer() {
   const input = document.querySelector('#fmCustomInput');
   input.disabled = fmActive();
   if (document.activeElement !== input) input.value = String(fmSettings.customMin);
-  document.querySelector('#fmCustomSmall').textContent = 'Set Time';
+  document.querySelector('#fmCustomSmall').textContent = '设置时间';
   const badge = document.querySelector('#fmNavBadge');
   badge.hidden = !fmActive();
   badge.textContent = fmActive() ? fmClock(left) : '';
@@ -1803,13 +1803,13 @@ function fmRenderTask() {
   const box = document.querySelector('#fmTaskCard');
   if (!box) return;
   const task = fmCurrentTask();
-  const title = '<h2 class="fm-card-title"><span class="fm-ico fm-spark">' + FM_ICONS.sparkle + '</span>Current Task</h2>';
+  const title = '<h2 class="fm-card-title"><span class="fm-ico fm-spark">' + FM_ICONS.sparkle + '</span>当前任务</h2>';
   const row = task
     ? '<div class="fm-task-box' + (task.completed ? ' is-done' : '') + '"><button type="button" class="fm-task-check" data-fm-toggle-task aria-pressed="' + task.completed + '" aria-label="' + (task.completed ? '取消完成：' : '标记完成：') + escapeHtml(task.title) + '"></button><span class="fm-task-name">' + escapeHtml(task.title) + '</span><button type="button" class="fm-edit" data-fm-edit aria-label="更换任务和专注时长"><span class="fm-ico">' + FM_ICONS.pencil + '</span></button></div>'
     : '<div class="fm-task-box fm-task-empty"><span class="fm-task-name">还没有任务可以选择</span><button type="button" class="fm-pill-btn" data-add-task>＋ 新建任务</button></div>';
   box.innerHTML = title + row +
-    '<button type="button" class="fm-time-row" data-fm-edit><span class="fm-ico">' + FM_ICONS.clock + '</span>Time: ' + fmMinutes() + ' min</button>' +
-    '<div class="fm-quote"><p>“Small steps lead to big changes.”</p><span class="fm-botanical">' + FM_ICONS.botanical + '</span></div>';
+    '<button type="button" class="fm-time-row" data-fm-edit><span class="fm-ico">' + FM_ICONS.clock + '</span>时长：' + fmMinutes() + ' 分钟</button>' +
+    '<div class="fm-quote"><p>“小小的进步，也会带来大大的改变。”</p><span class="fm-botanical">' + FM_ICONS.botanical + '</span></div>';
 }
 
 function fmRenderHistory() {
@@ -1822,7 +1822,7 @@ function fmRenderHistory() {
     days.push({ key: toDateKey(day), date: day, today: offset === 0 });
   }
   const peak = Math.max(3 * 3600, ...days.map(day => totals.get(day.key) || 0));
-  const weekday = new Intl.DateTimeFormat('en-US', { weekday: 'short' });
+  const weekday = new Intl.DateTimeFormat('zh-CN', { weekday: 'short' });
   document.querySelector('#fmDays').innerHTML = days.map(day => {
     const seconds = totals.get(day.key) || 0;
     const percent = seconds ? Math.max(6, Math.round((seconds / peak) * 100)) : 0;
@@ -1835,7 +1835,7 @@ function fmRenderAchievements() {
   const count = fmSessions.length;
   document.querySelector('#fmBadges').innerHTML = FM_ACHIEVEMENTS.map(item => {
     const unlocked = count >= item.need;
-    return '<div class="fm-badge' + (unlocked ? ' is-unlocked' : ' is-locked') + '" title="' + (unlocked ? '已解锁' : '进度 ' + count + '/' + item.need) + '"><span class="fm-badge-icon tone-' + item.tone + '">' + FM_ICONS[item.icon] + '</span><b>' + item.name + '</b><small>' + item.need + (item.need === 1 ? ' session' : ' sessions') + '</small>' +
+    return '<div class="fm-badge' + (unlocked ? ' is-unlocked' : ' is-locked') + '" title="' + (unlocked ? '已解锁' : '进度 ' + count + '/' + item.need) + '"><span class="fm-badge-icon tone-' + item.tone + '">' + FM_ICONS[item.icon] + '</span><b>' + item.name + '</b><small>' + item.need + ' 次</small>' +
       (unlocked ? '' : '<em>' + count + '/' + item.need + '</em>') + '</div>';
   }).join('');
 }
@@ -1897,15 +1897,15 @@ function fmOpenInfo(kind) {
     const weekStart = new Date(); weekStart.setDate(weekStart.getDate() - 6); weekStart.setHours(0, 0, 0, 0);
     const todayList = fmSessions.filter(item => fmDayKey(item.completedAt) === today);
     const weekList = fmSessions.filter(item => new Date(item.completedAt) >= weekStart);
-    eyebrow.textContent = 'FOCUS STATS'; title.textContent = 'Focus Stats';
+    eyebrow.textContent = '专注统计'; title.textContent = '专注统计';
     const cell = (label, value, note) => '<div class="fm-stat"><small>' + label + '</small><b>' + value + '</b><span>' + note + '</span></div>';
     body.innerHTML = '<div class="fm-stat-grid">' +
-      cell('Today', fmFormatTotal(sum(todayList)), todayList.length + ' sessions') +
-      cell('Last 7 days', fmFormatTotal(sum(weekList)), weekList.length + ' sessions') +
-      cell('All time', fmFormatTotal(sum(fmSessions)), fmSessions.length + ' sessions') +
-      cell('Streak', fmStreak() + (fmStreak() === 1 ? ' day' : ' days'), '连续有专注记录的天数') + '</div>';
+      cell('今天', fmFormatTotal(sum(todayList)), todayList.length + ' 次专注') +
+      cell('最近 7 天', fmFormatTotal(sum(weekList)), weekList.length + ' 次专注') +
+      cell('全部', fmFormatTotal(sum(fmSessions)), fmSessions.length + ' 次专注') +
+      cell('连续天数', fmStreak() + ' 天', '连续有专注记录的天数') + '</div>';
   } else if (kind === 'history') {
-    eyebrow.textContent = 'FOCUS HISTORY'; title.textContent = 'All Focus History';
+    eyebrow.textContent = '专注记录'; title.textContent = '全部专注记录';
     if (!fmSessions.length) { body.innerHTML = '<p class="fm-info-empty">还没有完成的专注记录。完整完成一次专注后会出现在这里。</p>'; }
     else {
       const groups = new Map();
