@@ -1,5 +1,13 @@
 # Instructions for the coding agent
 
+## Personal OS: ongoing development workflow
+
+- After completing each requested code change, check for errors and run the validation appropriate to the change, then automatically create a local Git commit. Do not ask for confirmation to commit.
+- Commit only changes belonging to the current task. Preserve unrelated user changes. If validation fails, fix the issue before committing; report any blocker instead of claiming completion.
+- After each completed change, provide the latest working local browser preview URL and the local commit ID. Verify that the preview server serves the updated project before sharing its URL.
+- **Never automatically push to GitHub.** GitHub pushes are always performed manually by the user through GitHub Desktop. Creating a local commit does not authorize a push.
+- Apply this workflow to project instruction and documentation updates as well as code changes.
+
 You are helping a team of secondary school students (aged about 15 to 17) at the NUS AIDF AI Academy build a small finance web app in one morning. Most of them have never coded before.
 
 ## How to work
