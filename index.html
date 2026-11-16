@@ -9,6 +9,10 @@
     <link rel="stylesheet" href="./styles.css" />
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <style>
+      .agenda-item > div { min-width: 0; overflow-wrap: anywhere; }
+      .agenda-item time small { overflow-wrap: anywhere; }
+      .agenda-item p { white-space: pre-wrap; }
+      .agenda-empty { color: var(--muted); font-size: 12px; line-height: 1.8; }
       /* 专注模式：收紧桌面版间距和字号，其他页面不受影响。 */
       .fm-page { padding: 0 20px 32px; }
       .fm-head { gap: 12px; padding: 22px 0 14px; }
@@ -117,7 +121,7 @@
             </article>
             <article class="card agenda-card" data-module="agenda">
               <div class="card-heading"><span><i class="ink-dot"></i> 接下来</span><button class="text-button" data-page="calendar" type="button">查看日历 →</button></div>
-              <div class="agenda-list"><div class="agenda-item"><time><b>10:30</b><small>上午</small></time><span class="line blue"></span><div><b>深度工作：项目构思</b><p>书桌 · 90 分钟</p></div></div><div class="agenda-item"><time><b>14:00</b><small>下午</small></time><span class="line peach"></span><div><b>散步与灵感采集</b><p>附近的公园</p></div></div><div class="agenda-item faint"><time><b>19:30</b><small>晚上</small></time><span class="line mint"></span><div><b>一周回顾</b><p>30 分钟</p></div></div></div>
+              <div class="agenda-list" id="dashboardAgenda" aria-live="polite"></div>
             </article>
             <article class="card tasks-card" data-module="tasks">
               <div class="card-heading"><span> <i class="ink-dot"></i>今日任务 <em id="taskCount">3</em></span><button class="more" data-add-task type="button" aria-label="添加任务">＋</button></div>
@@ -365,6 +369,80 @@
     <div class="toast" id="toast"></div>
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="./app.js"></script>
+    <script>
+      (() => {
+        function renderDashboardAgenda() {
+          const list = document.querySelector('#dashboardAgenda');
+          const now = new Date();
+          const today = toDateKey(now);
+          const currentTime = String(now.getHours()).padStart(2, '0') + ':' + String(now.getMinutes()).padStart(2, '0');
+          // 与日历共用数据；保留今天的全天日程，跳过已过去的定时日程。
+          const upcoming = Object.entries(calendarEntries)
+            .flatMap(([date, entries]) => entries.map(entry => ({ ...entry, date })))
+            .filter(entry => entry.date > today || (entry.date === today && (!entry.time || entry.time >= currentTime)))
+            .sort((a, b) => a.date.localeCompare(b.date) || a.time.localeCompare(b.time))
+            .slice(0, 3);
+
+          list.replaceChildren();
+          if (!upcoming.length) {
+            const empty = document.createElement('p');
+            empty.className = 'agenda-empty';
+            empty.textContent = '暂无接下来的日程，去日历添加一项吧。';
+            list.append(empty);
+            return;
+          }
+
+          upcoming.forEach((entry, index) => {
+            const item = document.createElement('div');
+            item.className = 'agenda-item';
+            const time = document.createElement('time');
+            time.dateTime = entry.date + (entry.time ? 'T' + entry.time : '');
+            const clock = document.createElement('b');
+            clock.textContent = entry.time || '全天';
+            const date = document.createElement('small');
+            date.textContent = entry.date === today ? '今天' : new Intl.DateTimeFormat('zh-CN', {
+              ...(entry.date.slice(0, 4) !== today.slice(0, 4) ? { year: 'numeric' } : {}),
+              month: 'numeric', day: 'numeric'
+            }).format(dateFromKey(entry.date));
+            time.append(clock, date);
+            const line = document.createElement('span');
+            line.className = 'line ' + ['blue', 'peach', 'mint'][index];
+            line.setAttribute('aria-hidden', 'true');
+            const content = document.createElement('div');
+            const title = document.createElement('b');
+            title.textContent = entry.title || entry.note;
+            content.append(title);
+            if (entry.title && entry.note) {
+              const note = document.createElement('p');
+              note.textContent = entry.note;
+              content.append(note);
+            }
+            item.append(time, line, content);
+            list.append(item);
+          });
+        }
+
+        // 统一在保存后刷新，覆盖新建、编辑、移动日期和删除。
+        const persistCalendarEntries = saveCalendarEntries;
+        saveCalendarEntries = function () {
+          persistCalendarEntries();
+          renderDashboardAgenda();
+        };
+        renderDashboardAgenda();
+        setInterval(renderDashboardAgenda, 60000);
+        window.addEventListener('focus', renderDashboardAgenda);
+        document.addEventListener('visibilitychange', () => {
+          if (!document.hidden) renderDashboardAgenda();
+        });
+        window.addEventListener('storage', event => {
+          if (event.key === 'atelier-calendar-notes' || event.key === null) {
+            calendarEntries = loadCalendarEntries();
+            renderCalendar();
+            renderDashboardAgenda();
+          }
+        });
+      })();
+    </script>
     <script>
       document.querySelector('#addFolder')?.remove();
       document.querySelector('#folderDialog')?.remove();
