@@ -11,77 +11,76 @@
     <style>
       /* 笔记看板：总览与自由画布。旧 DOM 仅供旧版启动代码兼容，不再展示。 */
       #legacyNotes, #notes [hidden] { display: none !important; }
-      #notes.notes-page { max-width: none; padding: 30px 26px; }
-      .nb-library-head { display: flex; justify-content: space-between; gap: 20px; align-items: center; margin: 4px 0 28px; }
-      .nb-library-head h1 { font-size: clamp(28px, 4vw, 42px); margin: 4px 0 8px; letter-spacing: -.04em; font-weight: 750; color: #129eb8; }
+      #notes.notes-page { max-width: none; padding: 0 26px 30px; }
+      .nb-library-head { display: flex; justify-content: space-between; gap: 20px; align-items: center; margin: 0 0 20px; }
       .nb-sub { margin: 0; color: var(--muted); font-size: 12px; line-height: 1.8; }
-      .nb-new { border: 0; border-radius: 12px; padding: 13px 20px; background: #119bb5; color: white; font: inherit; font-size: 13px; font-weight: 700; cursor: pointer; white-space: nowrap; }
+      .nb-new { border: 0; border-radius: 10px; padding: 12px 17px; background: var(--ink); color: var(--paper); box-shadow: 2px 3px 0 var(--primary); font: inherit; font-size: 13px; font-weight: 700; cursor: pointer; white-space: nowrap; }
       .nb-library-bar { display: flex; align-items: center; gap: 12px; margin-bottom: 20px; flex-wrap: wrap; }
-      .nb-search { border: 1px solid #86847c33; border-radius: 10px; background: var(--card); color: var(--ink); padding: 11px 14px; width: min(290px, 100%); font: inherit; font-size: 12px; }
+      .nb-search { border: 1px solid color-mix(in srgb, var(--ink) 18%, transparent); border-radius: 10px; background: var(--card); color: var(--ink); padding: 11px 14px; width: min(290px, 100%); font: inherit; font-size: 12px; }
       .nb-count { font-size: 11px; color: var(--muted); margin-right: auto; }
       .nb-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 24px; }
-      .nb-card { min-width: 0; position: relative; border: 1px solid #85847926; background: var(--card); border-radius: 17px; overflow: hidden; transition: transform .18s, box-shadow .18s; }
-      .nb-card:hover { transform: translateY(-3px); box-shadow: 0 10px 25px #33302e10; }
+      .nb-card { min-width: 0; position: relative; border: 1px solid color-mix(in srgb, var(--ink) 13%, transparent); background: var(--card); border-radius: 17px; overflow: hidden; transition: transform .18s, box-shadow .18s; }
+      .nb-card:hover { transform: translateY(-3px); box-shadow: 0 10px 25px color-mix(in srgb, var(--ink) 6%, transparent); }
       .nb-open { width: 100%; display: block; text-align: left; background: none; border: 0; padding: 0; color: var(--ink); cursor: pointer; font: inherit; }
-      .nb-preview { height: 180px; background: #fff; overflow: hidden; position: relative; pointer-events: none; }
+      .nb-preview { height: 180px; background: var(--card); overflow: hidden; position: relative; pointer-events: none; }
       .nb-mini-stage { position: absolute; transform-origin: top left; }
-      .nb-preview-empty { height: 100%; display: grid; place-content: center; color: #a3b5ba; font: 40px/1 Georgia, serif; }
-      .nb-card-foot { background: color-mix(in srgb, var(--paper) 65%, #f6f6f6); padding: 17px 42px 18px 18px; min-height: 83px; }
+      .nb-preview-empty { height: 100%; display: grid; place-content: center; color: var(--muted); font: 40px/1 Georgia, serif; }
+      .nb-card-foot { background: color-mix(in srgb, var(--paper) 65%, var(--card)); padding: 17px 42px 18px 18px; min-height: 83px; }
       .nb-card-foot b { display: block; font-size: 15px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
       .nb-card-foot small { display: block; font-size: 11px; color: var(--muted); margin-top: 7px; }
       .nb-card-delete { position: absolute; bottom: 24px; right: 12px; width: 28px; height: 28px; border: 0; border-radius: 7px; color: var(--muted); background: transparent; cursor: pointer; font-size: 19px; }
       .nb-card-delete:hover { background: #d85c5c15; color: #ac4545; }
-      .nb-empty { grid-column: 1 / -1; padding: 85px 24px; border: 1px dashed #85847944; border-radius: 20px; text-align: center; }
-      .nb-empty span { display: block; font-size: 42px; color: #129eb8; }
+      .nb-empty { grid-column: 1 / -1; padding: 85px 24px; border: 1px dashed color-mix(in srgb, var(--ink) 25%, transparent); border-radius: 20px; text-align: center; }
+      .nb-empty span { display: block; font-size: 42px; color: var(--ink); }
       .nb-empty h2 { font-size: 22px; font-weight: 600; margin: 18px 0 8px; }
       .nb-empty p { font-size: 13px; color: var(--muted); line-height: 1.8; }
       .nb-empty button { margin-top: 14px; }
-      .nb-editor { border: 1px solid #85847928; border-radius: 20px; background: #fff; overflow: hidden; box-shadow: 0 10px 35px #33302e08; }
-      .nb-editor-head { padding: 16px 18px; display: flex; align-items: center; gap: 12px; border-bottom: 1px solid #85847922; background: var(--card); flex-wrap: wrap; }
-      .nb-icon-btn { border: 1px solid #85847930; width: 36px; height: 36px; display: inline-grid; place-content: center; border-radius: 50%; font: inherit; font-size: 20px; line-height: 1; background: transparent; color: var(--ink); cursor: pointer; flex-shrink: 0; }
+      .nb-editor { border: 1px solid color-mix(in srgb, var(--ink) 13%, transparent); border-radius: 20px; background: var(--card); overflow: hidden; box-shadow: 0 10px 35px color-mix(in srgb, var(--ink) 4%, transparent); }
+      .nb-editor-head { padding: 16px 18px; display: flex; align-items: center; gap: 12px; border-bottom: 1px solid color-mix(in srgb, var(--ink) 10%, transparent); background: var(--card); flex-wrap: wrap; }
+      .nb-icon-btn { border: 1px solid color-mix(in srgb, var(--ink) 18%, transparent); width: 36px; height: 36px; display: inline-grid; place-content: center; border-radius: 50%; font: inherit; font-size: 20px; line-height: 1; background: transparent; color: var(--ink); cursor: pointer; flex-shrink: 0; }
       .nb-title { border: 0; background: transparent; color: var(--ink); font-family: inherit; font-size: 19px; font-weight: 650; line-height: 1.4; min-width: 0; flex: 1; width: 150px; padding: 6px 0; }
       .nb-save-state { font-size: 10px; color: var(--muted); white-space: nowrap; }
       .nb-save-state[data-error="true"] { color: #ad3f3f; font-weight: 700; white-space: normal; }
-      .nb-tools { display: flex; gap: 5px; padding: 10px 16px; align-items: center; flex-wrap: wrap; background: var(--card); border-bottom: 1px solid #85847922; }
+      .nb-tools { display: flex; gap: 5px; padding: 10px 16px; align-items: center; flex-wrap: wrap; background: var(--card); border-bottom: 1px solid color-mix(in srgb, var(--ink) 10%, transparent); }
       .nb-tool { border: 0; border-radius: 8px; background: transparent; color: var(--ink); cursor: pointer; padding: 9px 11px; font: inherit; font-size: 12px; display: inline-flex; align-items: center; gap: 6px; }
       .nb-tool span { font-size: 17px; line-height: 1; }
-      .nb-tool:hover, .nb-tool[aria-pressed="true"] { background: #129eb815; color: #087e94; }
+      .nb-tool:hover, .nb-tool[aria-pressed="true"] { background: color-mix(in srgb, var(--primary) 38%, transparent); color: var(--ink); }
       .nb-tool:disabled, .nb-icon-btn:disabled { opacity: .3; cursor: default; }
-      .nb-divider { width: 1px; height: 22px; background: #85847933; margin: 0 5px; }
-      .nb-properties { display: flex; gap: 7px; padding: 9px 18px; align-items: center; background: var(--card); border-bottom: 1px solid #85847922; min-height: 43px; flex-wrap: wrap; }
+      .nb-divider { width: 1px; height: 22px; background: color-mix(in srgb, var(--ink) 18%, transparent); margin: 0 5px; }
+      .nb-properties { display: flex; gap: 7px; padding: 9px 18px; align-items: center; background: var(--card); border-bottom: 1px solid color-mix(in srgb, var(--ink) 10%, transparent); min-height: 43px; flex-wrap: wrap; }
       .nb-properties label { font-size: 11px; color: var(--muted); margin: 0 6px 0 0; }
-      .nb-swatch { width: 22px; height: 22px; border-radius: 50%; border: 1px solid #5f5b4940; cursor: pointer; }
-      .nb-swatch[aria-pressed="true"] { outline: 2px solid #129eb8; outline-offset: 2px; }
-      .nb-properties select { border: 1px solid #85847944; padding: 3px 5px; border-radius: 5px; font: inherit; font-size: 11px; background: var(--card); color: var(--ink); }
+      .nb-swatch { width: 22px; height: 22px; border-radius: 50%; border: 1px solid color-mix(in srgb, var(--ink) 25%, transparent); cursor: pointer; }
+      .nb-swatch[aria-pressed="true"] { outline: 2px solid var(--ink); outline-offset: 2px; }
+      .nb-properties select { border: 1px solid color-mix(in srgb, var(--ink) 25%, transparent); padding: 3px 5px; border-radius: 5px; font: inherit; font-size: 11px; background: var(--card); color: var(--ink); }
       .nb-hint { margin-left: auto; color: var(--muted); font-size: 10px; }
-      .nb-viewport { height: min(68vh, 800px); min-height: 420px; overflow: auto; position: relative; background: #fafcfc; overscroll-behavior: contain; }
+      .nb-viewport { height: min(68vh, 800px); min-height: 420px; overflow: auto; position: relative; background: var(--paper); overscroll-behavior: contain; }
       .nb-canvas-space { position: relative; }
-      .nb-canvas { position: absolute; top: 0; left: 0; transform-origin: top left; background-color: #fff; background-image: radial-gradient(#bac5c9 1px, transparent 1px); background-size: 24px 24px; touch-action: pan-x pan-y; }
+      .nb-canvas { position: absolute; top: 0; left: 0; transform-origin: top left; background-color: var(--card); background-image: radial-gradient(color-mix(in srgb, var(--ink) 20%, transparent) 1px, transparent 1px); background-size: 24px 24px; touch-action: pan-x pan-y; }
       .nb-canvas[data-mode="pen"] { cursor: crosshair; touch-action: none; }
       .nb-canvas[data-mode="hand"] { cursor: grab; touch-action: none; }
       .nb-canvas[data-mode="hand"] .nb-object { pointer-events: none; }
       .nb-canvas[data-mode="pen"] .nb-object { pointer-events: none; }
-      .nb-object { position: absolute; border: 1px solid transparent; border-radius: 4px; color: #343b3e; }
-      .nb-object[data-type="sticky"] { box-shadow: 3px 6px 14px #514a2920; border-radius: 2px 2px 12px 2px; }
-      .nb-object[data-type="shape"] { border: 2px solid #42535b; border-radius: 22px; }
-      .nb-object.is-selected { outline: 2px solid #129eb8; outline-offset: 3px; z-index: 2; }
+      .nb-object { position: absolute; border: 1px solid transparent; border-radius: 4px; color: var(--ink); }
+      .nb-object[data-type="sticky"] { box-shadow: 3px 6px 14px color-mix(in srgb, var(--ink) 12%, transparent); border-radius: 2px 2px 12px 2px; }
+      .nb-object[data-type="shape"] { border: 2px solid var(--ink); border-radius: 22px; }
+      .nb-object.is-selected { outline: 2px solid var(--ink); outline-offset: 3px; z-index: 2; }
       .nb-object-text { resize: none; border: 0; outline: 0; width: 100%; height: 100%; background: transparent; color: inherit; font-family: inherit; font-size: inherit; line-height: 1.6; padding: 20px; display: block; white-space: pre-wrap; overflow-wrap: anywhere; }
       .nb-object[data-type="text"] .nb-object-text { padding: 8px 12px; }
       .nb-object[data-type="shape"] .nb-object-text { text-align: center; padding: 22px 12px; }
       .nb-object img, .nb-object svg { width: 100%; height: 100%; display: block; object-fit: contain; pointer-events: none; }
       .nb-object img { border-radius: 6px; }
-      .nb-drag { position: absolute; top: -25px; left: 0; display: none; height: 22px; border: 0; border-radius: 5px 5px 0 0; padding: 2px 9px; color: #087e94; background: #e4f5f8; cursor: grab; font-size: 11px; touch-action: none; }
+      .nb-drag { position: absolute; top: -25px; left: 0; display: none; height: 22px; border: 0; border-radius: 5px 5px 0 0; padding: 2px 9px; color: var(--ink); background: color-mix(in srgb, var(--primary) 48%, var(--card)); cursor: grab; font-size: 11px; touch-action: none; }
       .nb-object.is-selected .nb-drag { display: block; }
-      .nb-resize { display: none; position: absolute; right: -7px; bottom: -7px; width: 13px; height: 13px; border: 2px solid #129eb8; background: #fff; border-radius: 2px; cursor: nwse-resize; touch-action: none; }
+      .nb-resize { display: none; position: absolute; right: -7px; bottom: -7px; width: 13px; height: 13px; border: 2px solid var(--ink); background: var(--card); border-radius: 2px; cursor: nwse-resize; touch-action: none; }
       .nb-object.is-selected .nb-resize { display: block; }
       .nb-live-stroke { position: absolute; inset: 0; pointer-events: none; overflow: visible; }
-      .nb-editor-foot { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 16px; background: var(--card); border-top: 1px solid #85847922; font-size: 11px; color: var(--muted); }
+      .nb-editor-foot { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 16px; background: var(--card); border-top: 1px solid color-mix(in srgb, var(--ink) 10%, transparent); font-size: 11px; color: var(--muted); }
       .nb-zoom { display: flex; align-items: center; gap: 3px; }
       .nb-zoom button { border: 0; background: transparent; color: var(--ink); font: inherit; cursor: pointer; padding: 5px 9px; border-radius: 6px; }
-      .nb-zoom button:hover { background: #129eb815; }
+      .nb-zoom button:hover { background: color-mix(in srgb, var(--primary) 38%, transparent); }
       .nb-mini-stage .nb-object { overflow: hidden; }
       .nb-mini-stage .nb-object-text { display: block; white-space: pre-wrap; }
-      .nb-tool:focus-visible, .nb-open:focus-visible, .nb-new:focus-visible, .nb-icon-btn:focus-visible { outline: 2px solid #129eb8; outline-offset: -3px; }
+      .nb-tool:focus-visible, .nb-open:focus-visible, .nb-new:focus-visible, .nb-icon-btn:focus-visible { outline: 2px solid var(--ink); outline-offset: -3px; }
       @media (max-width: 760px) {
         #notes.notes-page { padding: 20px 8px; }
         .nb-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
@@ -277,8 +276,8 @@
 <div class="page simple-page" id="calendar"><div class="page-intro"><div><p class="eyebrow">PLAN & REMEMBER</p><h1 class="sr-only">日历</h1><p class="compact-page-title">Calendar</p></div><button class="outline-btn" id="addCalendarNote" type="button">＋ 新建日程</button></div><section class="calendar-placeholder calendar-feature" aria-label="日历"><div class="calendar-top"><button class="calendar-arrow" id="previousCalendarMonth" aria-label="上一个月" type="button">‹</button><b id="calendarTitle">日历</b><button class="calendar-arrow" id="nextCalendarMonth" aria-label="下一个月" type="button">›</button></div><p class="calendar-hint">点击日期创建日程；点击已有日程可编辑。所有内容会自动保存。</p><div class="calendar-grid" id="calendarGrid" aria-live="polite"></div></section></div>
         <div class="page simple-page notes-page" id="notes">
           <section id="nbLibrary" aria-label="所有看板">
-            <header class="nb-library-head">
-              <div><p class="eyebrow">NOTES · FREE YOUR IDEAS</p><h1>所有看板</h1><p class="nb-sub">一张画布，装下自由生长的想法。<br>内容仅保存在当前浏览器，自动保存。</p></div>
+            <header class="page-intro nb-library-head">
+              <div><p class="eyebrow">NOTES · FREE YOUR IDEAS</p><h1 class="compact-page-title">Notes</h1><p class="nb-sub">一张画布，装下自由生长的想法。<br>内容仅保存在当前浏览器，自动保存。</p></div>
               <button class="nb-new" id="nbNewBoard" type="button">＋ 新建看板</button>
             </header>
             <div class="nb-library-bar"><label class="sr-only" for="nbSearch">搜索看板</label><input class="nb-search" id="nbSearch" type="search" placeholder="搜索看板标题与内容…" /><span class="nb-count" id="nbCount"></span><button class="text-button" id="nbRestoreBoard" type="button" hidden>撤销删除看板</button></div>
