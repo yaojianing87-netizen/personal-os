@@ -52,22 +52,29 @@
       .nb-swatch { width: 22px; height: 22px; border-radius: 50%; border: 1px solid color-mix(in srgb, var(--ink) 25%, transparent); cursor: pointer; }
       .nb-swatch[aria-pressed="true"] { outline: 2px solid var(--ink); outline-offset: 2px; }
       .nb-properties select { border: 1px solid color-mix(in srgb, var(--ink) 25%, transparent); padding: 3px 5px; border-radius: 5px; font: inherit; font-size: 11px; background: var(--card); color: var(--ink); }
+      .nb-property-group { display: inline-flex; align-items: center; gap: 7px; flex-wrap: wrap; }
+      .nb-pen-icon { color: var(--nb-pen-color, #33302e); }
+      .nb-color-picker { width: 30px; height: 25px; padding: 1px; border: 1px solid color-mix(in srgb, var(--ink) 25%, transparent); border-radius: 5px; background: var(--card); cursor: pointer; }
+      .nb-color-hex { width: 78px; padding: 4px 6px; border: 1px solid color-mix(in srgb, var(--ink) 25%, transparent); border-radius: 5px; background: var(--card); color: var(--ink); font: 11px ui-monospace, monospace; }
+      .nb-color-hex[aria-invalid="true"] { border-color: #ad3f3f; }
       .nb-hint { margin-left: auto; color: var(--muted); font-size: 10px; }
       .nb-viewport { height: min(68vh, 800px); min-height: 420px; overflow: auto; position: relative; background: var(--paper); overscroll-behavior: contain; }
       .nb-canvas-space { position: relative; }
       .nb-canvas { position: absolute; top: 0; left: 0; transform-origin: top left; background-color: var(--card); background-image: radial-gradient(color-mix(in srgb, var(--ink) 20%, transparent) 1px, transparent 1px); background-size: 24px 24px; touch-action: pan-x pan-y; }
       .nb-canvas[data-mode="pen"] { cursor: crosshair; touch-action: none; }
+      .nb-canvas[data-mode="eraser"] { cursor: none; touch-action: none; }
+      .nb-canvas[data-mode="eraser"] .nb-object { pointer-events: none; }
+      .nb-eraser-cursor { position: absolute; pointer-events: none; border: 1px solid var(--ink); background: color-mix(in srgb, var(--card) 35%, transparent); border-radius: 50%; transform: translate(-50%, -50%); z-index: 5; box-shadow: 0 0 0 1px var(--card); }
       .nb-canvas[data-mode="hand"] { cursor: grab; touch-action: none; }
       .nb-canvas[data-mode="hand"] .nb-object { pointer-events: none; }
       .nb-canvas[data-mode="pen"] .nb-object { pointer-events: none; }
       .nb-object { position: absolute; border: 1px solid transparent; border-radius: 4px; color: var(--ink); }
       .nb-object[data-type="sticky"] { box-shadow: 3px 6px 14px color-mix(in srgb, var(--ink) 12%, transparent); border-radius: 2px 2px 12px 2px; }
-      .nb-object[data-type="shape"] { border: 2px solid var(--ink); border-radius: 22px; }
       .nb-object.is-selected { outline: 2px solid var(--ink); outline-offset: 3px; z-index: 2; }
       .nb-object-text { resize: none; border: 0; outline: 0; width: 100%; height: 100%; background: transparent; color: inherit; font-family: inherit; font-size: inherit; line-height: 1.6; padding: 20px; display: block; white-space: pre-wrap; overflow-wrap: anywhere; }
       .nb-object[data-type="text"] .nb-object-text { padding: 8px 12px; }
-      .nb-object[data-type="shape"] .nb-object-text { text-align: center; padding: 22px 12px; }
       .nb-object img, .nb-object svg { width: 100%; height: 100%; display: block; object-fit: contain; pointer-events: none; }
+      .nb-object svg { overflow: visible; }
       .nb-object img { border-radius: 6px; }
       .nb-drag { position: absolute; top: -25px; left: 0; display: none; height: 22px; border: 0; border-radius: 5px 5px 0 0; padding: 2px 9px; color: var(--ink); background: color-mix(in srgb, var(--primary) 48%, var(--card)); cursor: grab; font-size: 11px; touch-action: none; }
       .nb-object.is-selected .nb-drag { display: block; }
@@ -292,8 +299,8 @@
               <span class="nb-divider" aria-hidden="true"></span>
               <button class="nb-tool" type="button" data-nb-add="sticky"><span aria-hidden="true">▧</span>便签</button>
               <button class="nb-tool" type="button" data-nb-add="text"><span aria-hidden="true">T</span>文字</button>
-              <button class="nb-tool" type="button" data-nb-add="shape"><span aria-hidden="true">▢</span>图形</button>
-              <button class="nb-tool" type="button" data-nb-mode="pen" aria-pressed="false"><span aria-hidden="true">✎</span>画笔</button>
+              <button class="nb-tool" type="button" data-nb-mode="pen" aria-pressed="false"><span class="nb-pen-icon" aria-hidden="true">✎</span>画笔</button>
+              <button class="nb-tool" type="button" data-nb-mode="eraser" aria-pressed="false"><span aria-hidden="true">▱</span>橡皮</button>
               <button class="nb-tool" id="nbAddImage" type="button"><span aria-hidden="true">▧</span>图片</button>
               <input id="nbImageInput" type="file" accept="image/png,image/jpeg,image/webp" hidden />
               <span class="nb-divider" aria-hidden="true"></span>
@@ -301,7 +308,7 @@
               <button class="nb-tool" id="nbRedo" type="button" disabled aria-label="重做画布修改">↷ 重做</button>
               <button class="nb-tool" id="nbDeleteItem" type="button" disabled>删除所选</button>
             </div>
-            <div class="nb-properties" aria-label="内容样式"><label>颜色</label><button class="nb-swatch" style="background:#fff1a8" data-nb-color="#fff1a8" type="button" aria-label="浅黄色" aria-pressed="true"></button><button class="nb-swatch" style="background:#ffd9d9" data-nb-color="#ffd9d9" type="button" aria-label="浅粉色" aria-pressed="false"></button><button class="nb-swatch" style="background:#d7effa" data-nb-color="#d7effa" type="button" aria-label="浅蓝色" aria-pressed="false"></button><button class="nb-swatch" style="background:#dcefd9" data-nb-color="#dcefd9" type="button" aria-label="浅绿色" aria-pressed="false"></button><button class="nb-swatch" style="background:#e9e0fa" data-nb-color="#e9e0fa" type="button" aria-label="浅紫色" aria-pressed="false"></button><label for="nbFontSize">字号</label><select id="nbFontSize"><option value="16">16</option><option value="20" selected>20</option><option value="28">28</option><option value="36">36</option></select><span class="nb-hint" id="nbHint">双击空白添加文字 · 拖动内容上方手柄移动 · 右下角调整大小</span></div>
+            <div class="nb-properties" aria-label="内容样式"><div class="nb-property-group" id="nbNoteStyle"><label>便签底色</label><button class="nb-swatch" style="background:#fff1a8" data-nb-color="#fff1a8" type="button" aria-label="浅黄色" aria-pressed="true"></button><button class="nb-swatch" style="background:#ffd9d9" data-nb-color="#ffd9d9" type="button" aria-label="浅粉色" aria-pressed="false"></button><button class="nb-swatch" style="background:#d7effa" data-nb-color="#d7effa" type="button" aria-label="浅蓝色" aria-pressed="false"></button><button class="nb-swatch" style="background:#dcefd9" data-nb-color="#dcefd9" type="button" aria-label="浅绿色" aria-pressed="false"></button><button class="nb-swatch" style="background:#e9e0fa" data-nb-color="#e9e0fa" type="button" aria-label="浅紫色" aria-pressed="false"></button><label for="nbFontSize">字号</label><select id="nbFontSize"><option value="16">16</option><option value="20" selected>20</option><option value="28">28</option><option value="36">36</option></select></div><div class="nb-property-group" id="nbPenStyle" hidden><label for="nbPenColor">画笔颜色</label><button class="nb-swatch" type="button" data-nb-pen-color="#33302e" style="background:#33302e" aria-label="墨色画笔" aria-pressed="false"></button><button class="nb-swatch" type="button" data-nb-pen-color="#d95b6a" style="background:#d95b6a" aria-label="玫红画笔" aria-pressed="false"></button><button class="nb-swatch" type="button" data-nb-pen-color="#3c85aa" style="background:#3c85aa" aria-label="蓝色画笔" aria-pressed="false"></button><button class="nb-swatch" type="button" data-nb-pen-color="#598b56" style="background:#598b56" aria-label="绿色画笔" aria-pressed="false"></button><button class="nb-swatch" type="button" data-nb-pen-color="#886ab2" style="background:#886ab2" aria-label="紫色画笔" aria-pressed="false"></button><input class="nb-color-picker" id="nbPenColor" type="color" value="#33302e" aria-label="自定义画笔颜色" /><input class="nb-color-hex" id="nbPenHex" type="text" value="#33302e" maxlength="7" aria-label="画笔十六进制颜色" spellcheck="false" /></div><div class="nb-property-group" id="nbEraserStyle" hidden><label for="nbEraserMode">橡皮模式</label><select id="nbEraserMode"><option value="object">对象橡皮</option><option value="precise">精准橡皮</option></select><label for="nbEraserSize">橡皮大小</label><select id="nbEraserSize"><option value="8">小 · 8 px</option><option value="20" selected>中 · 20 px</option><option value="40">大 · 40 px</option><option value="64">特大 · 64 px</option></select></div><span class="nb-hint" id="nbHint">双击空白添加文字 · 拖动内容上方手柄移动 · 右下角调整大小</span></div>
             <div class="nb-viewport" id="nbViewport" tabindex="0" aria-label="自由画布，使用漫游工具拖动或滚动查看"><div class="nb-canvas-space" id="nbCanvasSpace"><div class="nb-canvas" id="nbCanvas" data-mode="select"></div></div></div>
             <footer class="nb-editor-foot"><span id="nbItemCount">0 个内容</span><div class="nb-zoom"><button id="nbZoomOut" type="button" aria-label="缩小画布">−</button><button id="nbZoomReset" type="button" aria-label="恢复百分之百缩放">100%</button><button id="nbZoomIn" type="button" aria-label="放大画布">＋</button><button id="nbFit" type="button">适合内容</button></div></footer>
           </section>
@@ -587,6 +594,12 @@
         let selectedId = null;
         let mode = 'select';
         let color = palette[0];
+        let penColor = '#33302e';
+        let eraserMode = 'object';
+        let eraserSize = 20;
+        const validHex = value => typeof value === 'string' && /^#[0-9a-f]{6}$/i.test(value);
+        const eraserCursor = make('div', 'nb-eraser-cursor');
+        eraserCursor.hidden = true;
         let fontSize = 20;
         let zoom = 1;
         let gesture = null;
@@ -599,7 +612,7 @@
           if (!raw || !['sticky', 'text', 'shape', 'image', 'drawing'].includes(raw.type)) return null;
           if (raw.type === 'image' && (typeof raw.src !== 'string' || !/^data:image\/(png|jpeg|webp);base64,/.test(raw.src))) return null;
           const item = {
-            id: typeof raw.id === 'string' && raw.id ? raw.id : newId(), type: raw.type,
+            id: typeof raw.id === 'string' && raw.id ? raw.id : newId(), type: raw.type === 'shape' ? 'sticky' : raw.type,
             x: bounded(raw.x, 160, 0, 50000), y: bounded(raw.y, 120, 32, 50000),
             w: bounded(raw.w, 240, raw.type === 'drawing' ? 6 : 40, 3000), h: bounded(raw.h, 190, raw.type === 'drawing' ? 6 : 30, 3000),
             text: typeof raw.text === 'string' ? raw.text : '',
@@ -608,6 +621,8 @@
           };
           if (raw.type === 'image') item.src = raw.src;
           if (raw.type === 'drawing') {
+            item.strokeColor = validHex(raw.strokeColor) ? raw.strokeColor.toLowerCase() : ink[item.color];
+            item.strokeId = typeof raw.strokeId === 'string' && raw.strokeId ? raw.strokeId : item.id;
             item.points = Array.isArray(raw.points) ? raw.points.filter(p => Array.isArray(p) && p.length === 2 && p.every(Number.isFinite)).slice(0, 20000).map(p => p.map(n => Math.max(0, Math.min(1, n)))) : [];
             if (item.points.length < 2) return null;
           }
@@ -694,12 +709,24 @@
           $('nbItemCount').textContent = (board()?.items.length || 0) + ' 个内容';
           $('nbFontSize').value = String(selected()?.fontSize || fontSize);
           document.querySelectorAll('[data-nb-color]').forEach(button => button.setAttribute('aria-pressed', String(button.dataset.nbColor === (selected()?.color || color))));
+          const drawingSelected = mode === 'select' && selected()?.type === 'drawing';
+          const activePenColor = drawingSelected ? selected().strokeColor : penColor;
+          $('nbNoteStyle').hidden = mode === 'pen' || mode === 'eraser' || drawingSelected;
+          $('nbPenStyle').hidden = mode !== 'pen' && !drawingSelected;
+          $('nbEraserStyle').hidden = mode !== 'eraser';
+          $('nbEditor').style.setProperty('--nb-pen-color', activePenColor);
+          $('nbPenColor').value = activePenColor;
+          $('nbPenHex').value = activePenColor;
+          $('nbPenHex').setAttribute('aria-invalid', 'false');
+          document.querySelectorAll('[data-nb-pen-color]').forEach(button => button.setAttribute('aria-pressed', String(button.dataset.nbPenColor === activePenColor)));
         }
         function setMode(next) {
           mode = next;
+          eraserCursor.hidden = true;
+          updateControls();
           $('nbCanvas').dataset.mode = next;
           document.querySelectorAll('[data-nb-mode]').forEach(button => button.setAttribute('aria-pressed', String(button.dataset.nbMode === next)));
-          $('nbHint').textContent = next === 'pen' ? '在空白处按住绘画 · 点击选择工具结束绘画' : next === 'hand' ? '按住画布拖动，自由查看各处内容' : '双击空白添加文字 · 拖动内容上方手柄移动 · 右下角调整大小';
+          $('nbHint').textContent = next === 'eraser' ? '仅擦除手绘笔迹 · 对象模式删除整笔，精准模式擦除覆盖部分' : next === 'pen' ? '色卡、图标与笔迹使用同一颜色 · 按住画布绘画' : next === 'hand' ? '按住画布拖动，自由查看各处内容' : '双击空白添加文字 · 拖动内容上方手柄移动 · 右下角调整大小';
         }
         function select(id) {
           selectedId = id;
@@ -707,7 +734,7 @@
           updateControls();
         }
         function objectStyle(el, item) {
-          Object.assign(el.style, { left: item.x + 'px', top: item.y + 'px', width: item.w + 'px', height: item.h + 'px', fontSize: item.fontSize + 'px', backgroundColor: ['sticky', 'shape'].includes(item.type) ? item.color : 'transparent' });
+          Object.assign(el.style, { left: item.x + 'px', top: item.y + 'px', width: item.w + 'px', height: item.h + 'px', fontSize: item.fontSize + 'px', backgroundColor: item.type === 'sticky' ? item.color : 'transparent' });
         }
         function objectElement(item, miniature = false) {
           const el = make('div', 'nb-object');
@@ -721,15 +748,15 @@
             svg.setAttribute('viewBox', '0 0 1000 1000'); svg.setAttribute('preserveAspectRatio', 'none');
             const path = document.createElementNS(svg.namespaceURI, 'polyline');
             path.setAttribute('points', item.points.map(p => p[0] * 1000 + ',' + p[1] * 1000).join(' '));
-            path.setAttribute('fill', 'none'); path.setAttribute('stroke', ink[item.color]); path.setAttribute('stroke-width', '3'); path.setAttribute('vector-effect', 'non-scaling-stroke'); path.setAttribute('stroke-linecap', 'round'); path.setAttribute('stroke-linejoin', 'round');
+            path.setAttribute('fill', 'none'); path.setAttribute('stroke', item.strokeColor || ink[item.color]); path.setAttribute('stroke-width', '3'); path.setAttribute('vector-effect', 'non-scaling-stroke'); path.setAttribute('stroke-linecap', 'round'); path.setAttribute('stroke-linejoin', 'round');
             svg.append(path); el.append(svg);
           } else {
             const text = make(miniature ? 'div' : 'textarea', 'nb-object-text');
             if (miniature) text.textContent = item.text;
             else {
               text.value = item.text;
-              text.placeholder = item.type === 'sticky' ? '写下一点想法…' : item.type === 'shape' ? '写点什么…' : '在这里输入文字…';
-              text.setAttribute('aria-label', item.type === 'sticky' ? '便签内容' : item.type === 'shape' ? '图形文字' : '文字内容');
+              text.placeholder = item.type === 'sticky' ? '写下一点想法…' : '在这里输入文字…';
+              text.setAttribute('aria-label', item.type === 'sticky' ? '便签内容' : '文字内容');
               text.addEventListener('focus', () => { select(item.id); editingId = null; });
               text.addEventListener('input', () => {
                 if (editingId !== item.id) { remember(); editingId = item.id; }
@@ -760,7 +787,7 @@
         }
         function renderCanvas() {
           const b = board(); if (!b) return;
-          $('nbCanvas').replaceChildren(...b.items.map(i => objectElement(i)));
+          $('nbCanvas').replaceChildren(...b.items.map(i => objectElement(i)), eraserCursor);
           sizeCanvas(); updateControls();
         }
         function formatUpdated(timestamp) {
@@ -879,6 +906,19 @@
           if (selected()) { remember(); selected().color = color; renderCanvas(); persist(); }
           updateControls();
         }));
+        function choosePenColor(value) {
+          if (!validHex(value)) { $('nbPenHex').setAttribute('aria-invalid', 'true'); return; }
+          penColor = value.toLowerCase();
+          if (mode === 'select' && selected()?.type === 'drawing') {
+            remember(); selected().strokeColor = penColor; renderCanvas(); persist();
+          }
+          updateControls();
+        }
+        document.querySelectorAll('[data-nb-pen-color]').forEach(button => button.addEventListener('click', () => choosePenColor(button.dataset.nbPenColor)));
+        $('nbPenColor').addEventListener('input', event => choosePenColor(event.target.value));
+        $('nbPenHex').addEventListener('input', event => { if (validHex(event.target.value)) choosePenColor(event.target.value); else event.target.setAttribute('aria-invalid', 'true'); });
+        $('nbEraserMode').addEventListener('change', event => { eraserMode = event.target.value; });
+        $('nbEraserSize').addEventListener('change', event => { eraserSize = Number(event.target.value); eraserCursor.hidden = true; });
         $('nbFontSize').addEventListener('change', () => {
           fontSize = Number($('nbFontSize').value);
           if (selected()) { remember(); selected().fontSize = fontSize; renderCanvas(); persist(); }
@@ -900,16 +940,115 @@
           const rect = $('nbCanvas').getBoundingClientRect();
           return [Math.max(0, (event.clientX - rect.left) / zoom), Math.max(32, (event.clientY - rect.top) / zoom)];
         }
+        // 返回线段落在橡皮扫过胶囊内的参数区间，连续检测可覆盖快速移动和稀疏笔画。
+        function capsuleIntervals(p, q, a, b, radius) {
+          const vx = q[0] - p[0], vy = q[1] - p[1];
+          const intervals = [];
+          function circle(c) {
+            const dx = p[0] - c[0], dy = p[1] - c[1];
+            const A = vx * vx + vy * vy, B = 2 * (dx * vx + dy * vy), C = dx * dx + dy * dy - radius * radius;
+            if (A < 1e-16) { if (C <= 0) intervals.push([0, 1]); return; }
+            const discriminant = B * B - 4 * A * C;
+            if (discriminant < 0) return;
+            const root = Math.sqrt(discriminant);
+            const lo = Math.max(0, (-B - root) / (2 * A)), hi = Math.min(1, (-B + root) / (2 * A));
+            if (lo <= hi) intervals.push([lo, hi]);
+          }
+          circle(a); circle(b);
+          const dx = b[0] - a[0], dy = b[1] - a[1], length = Math.hypot(dx, dy);
+          if (length > 1e-8) {
+            const ux = dx / length, uy = dy / length;
+            let lo = 0, hi = 1;
+            const constraints = [
+              [(p[0] - a[0]) * ux + (p[1] - a[1]) * uy, vx * ux + vy * uy, 0, length],
+              [-(p[0] - a[0]) * uy + (p[1] - a[1]) * ux, -vx * uy + vy * ux, -radius, radius]
+            ];
+            for (const [position, velocity, min, max] of constraints) {
+              if (Math.abs(velocity) < 1e-12) { if (position < min || position > max) { hi = -1; break; } }
+              else { const t0 = (min - position) / velocity, t1 = (max - position) / velocity; lo = Math.max(lo, Math.min(t0, t1)); hi = Math.min(hi, Math.max(t0, t1)); }
+            }
+            if (lo <= hi) intervals.push([lo, hi]);
+          }
+          intervals.sort((x, y) => x[0] - y[0]);
+          const merged = [];
+          for (const interval of intervals) {
+            const last = merged[merged.length - 1];
+            if (last && interval[0] <= last[1] + 1e-9) last[1] = Math.max(last[1], interval[1]);
+            else merged.push([...interval]);
+          }
+          return merged;
+        }
+        function clipStroke(points, a, b, radius) {
+          const paths = []; let current = [], hit = false;
+          const endPath = () => { if (current.length >= 2) paths.push(current); current = []; };
+          for (let i = 1; i < points.length; i += 1) {
+            const p = points[i - 1], q = points[i];
+            const cuts = capsuleIntervals(p, q, a, b, radius);
+            if (cuts.length) hit = true;
+            const at = t => [p[0] + (q[0] - p[0]) * t, p[1] + (q[1] - p[1]) * t];
+            let start = 0;
+            for (const [lo, hi] of [...cuts, [1, 1]]) {
+              if (lo - start > 1e-9) {
+                if (!current.length) current.push(at(start));
+                current.push(at(lo));
+              }
+              if (hi > lo || lo < 1) endPath();
+              start = Math.max(start, hi);
+            }
+          }
+          endPath();
+          return { hit, paths };
+        }
+        function drawingItem(points, template = {}) {
+          const xs = points.map(p => p[0]), ys = points.map(p => p[1]);
+          const x = Math.min(...xs), y = Math.min(...ys), w = Math.max(6, Math.max(...xs) - x), h = Math.max(6, Math.max(...ys) - y);
+          const id = newId();
+          return { ...template, id, strokeId: template.strokeId || template.id || id, type: 'drawing', x, y, w, h,
+            color: template.color || palette[0], strokeColor: template.strokeColor || penColor, fontSize, text: '',
+            points: points.map(p => [(p[0] - x) / w, (p[1] - y) / h]) };
+        }
+        function eraseBetween(a, b) {
+          const g = gesture;
+          const radius = (eraserSize / 2 + 1.5) / zoom;
+          const results = new Map(), hitStrokes = new Set();
+          for (const item of board().items) {
+            if (item.type !== 'drawing') continue;
+            const points = item.points.map(p => [item.x + p[0] * item.w, item.y + p[1] * item.h]);
+            const clipped = clipStroke(points, a, b, radius);
+            if (clipped.hit) { results.set(item.id, clipped.paths); hitStrokes.add(item.strokeId || item.id); }
+          }
+          if (!results.size) return;
+          if (!g.changed) { remember(); g.changed = true; }
+          selectedId = null;
+          board().items = board().items.flatMap(item => {
+            if (eraserMode === 'object') return hitStrokes.has(item.strokeId || item.id) ? [] : [item];
+            const paths = results.get(item.id);
+            return paths ? paths.map(points => drawingItem(points, item)) : [item];
+          });
+          renderCanvas();
+        }
+        function moveEraserCursor(event) {
+          if (mode !== 'eraser') { eraserCursor.hidden = true; return; }
+          const p = point(event), diameter = eraserSize / zoom;
+          eraserCursor.hidden = false;
+          Object.assign(eraserCursor.style, { left: p[0] + 'px', top: p[1] + 'px', width: diameter + 'px', height: diameter + 'px' });
+        }
+
+        $('nbCanvas').addEventListener('pointerleave', () => { if (!gesture) eraserCursor.hidden = true; });
         $('nbCanvas').addEventListener('pointerdown', event => {
           if (event.button !== 0 || !board()) return;
-          if (mode === 'hand') {
+          if (mode === 'eraser') {
+            gesture = { type: 'erase', last: point(event), changed: false };
+            moveEraserCursor(event);
+            eraseBetween(gesture.last, gesture.last);
+          } else if (mode === 'hand') {
             gesture = { type: 'pan', x: event.clientX, y: event.clientY, left: $('nbViewport').scrollLeft, top: $('nbViewport').scrollTop };
           } else if (mode === 'pen') {
             const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg'); svg.classList.add('nb-live-stroke');
             svg.setAttribute('width', canvasSize().w); svg.setAttribute('height', canvasSize().h);
-            const path = document.createElementNS(svg.namespaceURI, 'polyline'); path.setAttribute('fill', 'none'); path.setAttribute('stroke', ink[color]); path.setAttribute('stroke-width', '3'); path.setAttribute('stroke-linecap', 'round'); path.setAttribute('stroke-linejoin', 'round');
+            const path = document.createElementNS(svg.namespaceURI, 'polyline'); path.setAttribute('fill', 'none'); path.setAttribute('stroke', penColor); path.setAttribute('stroke-width', '3'); path.setAttribute('stroke-linecap', 'round'); path.setAttribute('stroke-linejoin', 'round');
             svg.append(path); $('nbCanvas').append(svg);
-            gesture = { type: 'draw', points: [point(event)], svg, path };
+            gesture = { type: 'draw', points: [point(event)], svg, path, strokeColor: penColor };
             select(null);
           } else {
             const handle = event.target.closest('[data-nb-drag], [data-nb-resize]');
@@ -922,8 +1061,10 @@
           if (gesture) { event.preventDefault(); $('nbCanvas').setPointerCapture(event.pointerId); }
         });
         $('nbCanvas').addEventListener('pointermove', event => {
+          moveEraserCursor(event);
           if (!gesture) return;
           const g = gesture;
+          if (g.type === 'erase') { const next = point(event); eraseBetween(g.last, next); g.last = next; return; }
           if (g.type === 'pan') { $('nbViewport').scrollTo(g.left - event.clientX + g.x, g.top - event.clientY + g.y); return; }
           if (g.type === 'draw') {
             if (g.points.length < 20000) g.points.push(point(event));
@@ -939,12 +1080,11 @@
           const g = gesture; gesture = null;
           if (g.type === 'draw') {
             g.svg.remove(); if (g.points.length < 2) return;
-            const xs = g.points.map(p => p[0]), ys = g.points.map(p => p[1]);
-            const x = Math.min(...xs), y = Math.min(...ys), w = Math.max(6, Math.max(...xs) - x), h = Math.max(6, Math.max(...ys) - y);
             remember();
-            const item = { id: newId(), type: 'drawing', x, y, w, h, color, fontSize, text: '', points: g.points.map(p => [(p[0] - x) / w, (p[1] - y) / h]) };
+            const item = drawingItem(g.points, { strokeColor: g.strokeColor });
             board().items.push(item); renderCanvas(); persist();
-          } else if (g.type !== 'pan') { sizeCanvas(); persist(); }
+          } else if (g.type === 'erase') { if (g.changed) { sizeCanvas(); persist(); } }
+          else if (g.type !== 'pan') { sizeCanvas(); persist(); }
         }
         $('nbCanvas').addEventListener('pointerup', finishGesture);
         $('nbCanvas').addEventListener('pointercancel', finishGesture);
