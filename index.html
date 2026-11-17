@@ -269,6 +269,23 @@
       .feedback-send-note { font-size: 11px; color: var(--muted); line-height: 1.8; margin: 2px 0 0; }
       @media (max-width: 950px) { .feedback-layout { grid-template-columns: 1fr; } .feedback-contacts { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
       @media (max-width: 620px) { .feedback-contacts, .feedback-form-fields { grid-template-columns: 1fr; } .feedback-form input, .feedback-form select, .feedback-form textarea { font-size: 16px; } .feedback-mobile-link { display: block; position: fixed; bottom: 14px; right: 14px; z-index: 20; border: 1px solid color-mix(in srgb, var(--ink) 20%, transparent); border-radius: 10px; padding: 10px 14px; background: var(--card); color: var(--ink); font: inherit; font-size: 12px; box-shadow: 0 3px 12px color-mix(in srgb, var(--ink) 8%, transparent); cursor: pointer; } }
+      #addAttraction { display: none; }
+      .travel-place-group { position: relative; }
+      .travel-place-group > .travel-place { padding-right: 40px; }
+      .travel-place-remove { position: absolute; right: 8px; top: 7px; width: 26px; height: 26px; border: 0; border-radius: 7px; background: transparent; color: var(--muted); font: inherit; font-size: 20px; line-height: 1; cursor: pointer; }
+      .travel-place-remove:hover { color: #a84848; background: #a8484810; }
+      .travel-map-pick { color: var(--ink); font-family: ui-rounded, system-ui, -apple-system, BlinkMacSystemFont, "PingFang SC", sans-serif; min-width: 220px; }
+      .travel-map-pick h3 { font-size: 14px; margin: 0 0 10px; }
+      .travel-map-pick label { display: block; font-size: 11px; color: var(--muted); margin: 8px 0 4px; }
+      .travel-map-pick input { width: 100%; border: 1px solid color-mix(in srgb, var(--ink) 20%, transparent); border-radius: 7px; padding: 8px; background: var(--card); color: var(--ink); font: inherit; font-size: 13px; }
+      .travel-map-pick .travel-pick-address { margin: 8px 0; font-size: 11px; line-height: 1.6; color: var(--muted); max-height: 78px; overflow-y: auto; overflow-wrap: anywhere; }
+      .travel-map-pick .travel-pick-coordinate { font-size: 10px; color: var(--muted); margin: 8px 0; }
+      .travel-pick-actions { display: flex; gap: 6px; flex-wrap: wrap; margin: 12px 0 5px; }
+      .travel-pick-actions button { border: 1px solid color-mix(in srgb, var(--ink) 18%, transparent); border-radius: 7px; padding: 8px 10px; font: inherit; font-size: 12px; background: var(--card); color: var(--ink); cursor: pointer; }
+      .travel-pick-actions button:first-child { background: var(--ink); color: var(--paper); }
+      .travel-pick-status { margin: 8px 0 0 !important; font-size: 11px; line-height: 1.6; color: var(--muted); }
+      .travel-pick-status[data-error="true"] { color: #ad3f3f; }
+      .travel-remove-message { color: var(--muted); line-height: 1.8; font-size: 13px; margin: 0; }
     </style>
   </head>
   <body>
@@ -506,7 +523,7 @@
           </section>
           <section class="travel-map-card" aria-label="世界地图">
             <div id="travelMap" class="travel-map"></div>
-            <p class="travel-map-hint">点击地图上的标记可以查看地点；用「添加地点」搜索并保存新的目的地。地图数据来自 OpenStreetMap。</p>
+            <p class="travel-map-hint">点击地图位置可识别附近地点，确认后加入想去、已去或正在计划；也可用「添加地点」搜索。放大地图后更方便选点。地图数据来自 OpenStreetMap。</p>
           </section>
         </div>
         <div class="page appearance-page" id="appearance">
@@ -616,6 +633,9 @@
       </div>
     </dialog>
     <button class="feedback-mobile-link" id="feedbackMobileEntry" type="button" data-page="feedback">反馈</button>
+    <dialog class="calendar-dialog" id="travelRemoveDialog" aria-labelledby="travelRemoveTitle">
+      <div class="calendar-note-form"><div class="dialog-heading"><h2 id="travelRemoveTitle">删除地点</h2><button class="dialog-close" id="travelRemoveClose" type="button" aria-label="关闭删除确认">×</button></div><p class="travel-remove-message" id="travelRemoveMessage"></p><p class="calendar-form-error" id="travelRemoveError" role="alert"></p><div class="dialog-actions"><span></span><span></span><button class="outline-btn" id="travelRemoveCancel" type="button">取消</button><button class="primary-btn" id="travelRemoveConfirm" type="button">确认删除地点</button></div></div>
+    </dialog>
     <div class="toast" id="toast"></div>
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="./app.js"></script>
@@ -1510,6 +1530,216 @@
         window.addEventListener('pagehide', clearFeedback);
         window.addEventListener('pageshow', clearFeedback);
         clearFeedback();
+      })();
+    </script>
+    <script>
+      (() => {
+        const $ = id => document.getElementById(id);
+        $('addAttraction')?.remove();
+        const renderOriginalTravelStats = renderTravelStats;
+        renderTravelStats = function () {
+          renderOriginalTravelStats();
+          document.querySelectorAll('.travel-stats [data-focus-destination]').forEach(button => {
+            const place = travelDestinations.find(item => item.id === button.dataset.focusDestination);
+            if (!place) return;
+            const remove = document.createElement('button');
+            remove.type = 'button'; remove.className = 'travel-place-remove';
+            remove.dataset.travelRemove = place.id; remove.textContent = '×';
+            remove.setAttribute('aria-label', '删除地点：' + place.name); remove.title = '删除地点';
+            button.closest('.travel-place-group').append(remove);
+          });
+        };
+
+        const renderOriginalTravelMarkers = renderTravelMarkers;
+        renderTravelMarkers = function () {
+          renderOriginalTravelMarkers();
+          travelMarkers.forEach(marker => marker.on('click', () => onMapPick({ latlng: marker.getLatLng() })));
+        };
+
+        let pendingDeleteId = null, deleting = false;
+        function requestDelete(id) {
+          if (deleting) return;
+          const destination = travelDestinations.find(item => item.id === id);
+          if (!destination) return;
+          pendingDeleteId = id;
+          const children = travelAttractions.filter(item => item.destinationId === id).length;
+          const todos = travelTodos.filter(item => item.destinationId === id).length;
+          $('travelRemoveMessage').textContent = '确定删除「' + destination.name + '」吗？' + (children || todos ? '它下面的 ' + children + ' 个景点及其照片、' + todos + ' 条待办也会一并删除。' : '') + '此操作无法撤销。';
+          $('travelRemoveError').textContent = '';
+          $('travelRemoveDialog').showModal();
+        }
+        // 地图与列表共用同一个删除确认，阻止旧的地图删除处理器重复执行。
+        document.addEventListener('click', event => {
+          const button = event.target.closest('[data-travel-remove], [data-delete-destination]');
+          if (!button) return;
+          event.preventDefault(); event.stopPropagation();
+          requestDelete(button.dataset.travelRemove || button.dataset.deleteDestination);
+        }, true);
+        function closeDelete() { if (!deleting) $('travelRemoveDialog').close(); }
+        $('travelRemoveCancel').addEventListener('click', closeDelete);
+        $('travelRemoveClose').addEventListener('click', closeDelete);
+        $('travelRemoveDialog').addEventListener('cancel', event => { if (deleting) event.preventDefault(); });
+        $('travelRemoveConfirm').addEventListener('click', async () => {
+          if (deleting) return;
+          const id = pendingDeleteId;
+          const destination = travelDestinations.find(item => item.id === id);
+          if (!destination) { closeDelete(); return; }
+          deleting = true;
+          ['travelRemoveConfirm', 'travelRemoveCancel', 'travelRemoveClose'].forEach(key => { $(key).disabled = true; });
+          try {
+            await removeDestinationCascade(id);
+            const before = travelDestinations;
+            travelDestinations = travelDestinations.filter(item => item.id !== id);
+            try { saveTravelDestinations(); } catch (error) { travelDestinations = before; throw error; }
+            renderTravelStats(); renderTravelMarkers();
+            if (travelMap) travelMap.closePopup();
+            $('travelRemoveDialog').close();
+            show('已删除 ' + destination.name);
+          } catch {
+            $('travelRemoveError').textContent = '删除未完成，请检查浏览器存储后重试。';
+          } finally {
+            deleting = false;
+            ['travelRemoveConfirm', 'travelRemoveCancel', 'travelRemoveClose'].forEach(key => { $(key).disabled = false; });
+          }
+        });
+
+        let boundMap = null, current = null, sequence = 0;
+        let reverseTimer = null, reverseController = null, lastRequestAt = 0;
+        const reverseCache = new Map();
+        function cancelPick(closePopup = true) {
+          sequence += 1;
+          clearTimeout(reverseTimer); reverseTimer = null;
+          reverseController?.abort(); reverseController = null;
+          const popup = current?.popup; current = null;
+          if (closePopup && popup && travelMap) travelMap.closePopup(popup);
+        }
+        function normalizeMapPoint(lat, lon) {
+          if (!Number.isFinite(lat) || !Number.isFinite(lon) || Math.abs(lat) > 90) return null;
+          return { lat, lon: ((lon + 180) % 360 + 360) % 360 - 180 };
+        }
+        function findPlaceAtPoint(point) {
+          return travelDestinations.find(item => {
+            const latDistance = (item.lat - point.lat) * Math.PI / 180;
+            const lonDifference = ((item.lon - point.lon + 180) % 360 + 360) % 360 - 180;
+            const lonDistance = lonDifference * Math.PI / 180;
+            const a = Math.sin(latDistance / 2) ** 2 + Math.cos(point.lat * Math.PI / 180) * Math.cos(item.lat * Math.PI / 180) * Math.sin(lonDistance / 2) ** 2;
+            return 6371000 * 2 * Math.asin(Math.sqrt(Math.min(1, a))) < 10;
+          });
+        }
+        function describeMapPlace(data) {
+          if (!data || typeof data !== 'object' || data.error) return null;
+          const address = data.address && typeof data.address === 'object' ? data.address : {};
+          const text = value => typeof value === 'string' ? value.trim() : '';
+          const full = text(data.display_name);
+          const name = text(data.name) || text(address.amenity) || text(address.tourism) || text(address.road) || text(address.city) || text(address.town) || text(address.village) || full.split(',')[0];
+          if (!name && !full) return null;
+          return { name: name.slice(0, 160), country: text(address.country).slice(0, 100), address: full.slice(0, 600) };
+        }
+        function make(tag, className, text) {
+          const el = document.createElement(tag); if (className) el.className = className;
+          if (text !== undefined) el.textContent = text;
+          return el;
+        }
+        function popupContent() {
+          const content = make('div', 'travel-map-pick');
+          L.DomEvent.disableClickPropagation(content); L.DomEvent.disableScrollPropagation(content);
+          content.addEventListener('keydown', event => event.stopPropagation());
+          return content;
+        }
+        function renderPickResult(ticket, place, errorMessage = '') {
+          if (!current || current.ticket !== ticket) return;
+          const { point, popup } = current;
+          const existing = findPlaceAtPoint(point);
+          const content = popupContent();
+          content.append(make('h3', '', '添加此地点'));
+          const nameLabel = make('label', '', '地点名称'); nameLabel.htmlFor = 'travelPickName';
+          const name = make('input'); name.id = 'travelPickName'; name.maxLength = 160; name.placeholder = '填写地点名称'; name.value = existing?.name || place?.name || '';
+          const countryLabel = make('label', '', '国家／地区（选填）'); countryLabel.htmlFor = 'travelPickCountry';
+          const country = make('input'); country.id = 'travelPickCountry'; country.maxLength = 100; country.value = existing?.country || place?.country || '';
+          content.append(nameLabel, name, countryLabel, country);
+          if (place?.address) content.append(make('p', 'travel-pick-address', place.address));
+          content.append(make('p', 'travel-pick-coordinate', point.lat.toFixed(5) + ', ' + point.lon.toFixed(5)));
+          const status = make('p', 'travel-pick-status', existing ? '此处已在旅行地图中，选择分类可更新状态。' : errorMessage || '识别到附近地点，请确认或修改名称后选择分类。');
+          status.setAttribute('role', 'status');
+          const actions = make('div', 'travel-pick-actions');
+          for (const [key, label] of [['wishlist', '想去'], ['visited', '已去'], ['planning', '正在计划']]) {
+            const button = make('button', '', label); button.type = 'button'; button.dataset.travelPickStatus = key;
+            button.addEventListener('click', () => {
+              if (!current || current.ticket !== ticket) return;
+              const title = name.value.trim();
+              if (!title) { status.textContent = '请先填写地点名称。'; status.dataset.error = 'true'; name.focus(); return; }
+              const before = travelDestinations.map(item => ({ ...item }));
+              let destination = findPlaceAtPoint(point);
+              const updated = Boolean(destination);
+              if (destination) Object.assign(destination, { name: title, country: country.value.trim(), status: key });
+              else { destination = { id: newId(), name: title, country: country.value.trim(), lat: point.lat, lon: point.lon, status: key }; travelDestinations.push(destination); }
+              try { saveTravelDestinations(); }
+              catch { travelDestinations = before; status.textContent = '地点尚未保存，请检查浏览器存储后重试。'; status.dataset.error = 'true'; return; }
+              renderTravelStats(); renderTravelMarkers();
+              cancelPick();
+              travelMarkers.get(destination.id)?.openPopup();
+              show((updated ? '已更新 ' : '已添加 ') + title + ' · ' + TRAVEL_STATUS[key].label);
+            });
+            actions.append(button);
+          }
+          content.append(actions, status);
+          if (existing) {
+            const remove = make('button', 'travel-popup-delete', '删除此地点');
+            remove.type = 'button'; remove.dataset.travelRemove = existing.id; content.append(remove);
+          }
+          popup.setContent(content);
+        }
+        function onMapPick(event) {
+          if (event.originalEvent?.target?.closest('.leaflet-popup, .leaflet-control, .leaflet-marker-icon')) return;
+          const point = normalizeMapPoint(event.latlng.lat, event.latlng.lng);
+          if (!point) return;
+          cancelPick();
+          const ticket = ++sequence;
+          const content = popupContent(); content.append(make('h3', '', '正在识别此位置…'), make('p', 'travel-pick-status', '稍候即可选择旅行分类。'));
+          const popup = L.popup({ maxWidth: 320, minWidth: 240, autoPan: true }).setLatLng([point.lat, point.lon]).setContent(content);
+          current = { ticket, point, popup }; popup.openOn(travelMap);
+          const cacheKey = point.lat.toFixed(5) + ',' + point.lon.toFixed(5);
+          const known = findPlaceAtPoint(point);
+          if (known) { renderPickResult(ticket, { name: known.name, country: known.country, address: '' }); return; }
+          if (reverseCache.has(cacheKey)) { renderPickResult(ticket, reverseCache.get(cacheKey)); return; }
+          // 合并快速点击并限制请求频率；过期响应不会覆盖最新选点。
+          reverseTimer = setTimeout(async () => {
+            if (!current || current.ticket !== ticket) return;
+            const controller = new AbortController(); reverseController = controller;
+            const timeout = setTimeout(() => controller.abort(), 10000);
+            lastRequestAt = Date.now();
+            try {
+              const query = new URLSearchParams({ format: 'jsonv2', lat: String(point.lat), lon: String(point.lon), zoom: '18', addressdetails: '1', 'accept-language': 'zh-CN,zh,en' });
+              const response = await fetch('https://nominatim.openstreetmap.org/reverse?' + query, { signal: controller.signal });
+              if (!response.ok) throw new Error('reverse failed');
+              const place = describeMapPlace(await response.json());
+              if (!place) { renderPickResult(ticket, null, '未识别出附近地点，可填写名称后添加。'); return; }
+              reverseCache.set(cacheKey, place);
+              if (reverseCache.size > 60) reverseCache.delete(reverseCache.keys().next().value);
+              renderPickResult(ticket, place);
+            } catch {
+              renderPickResult(ticket, null, '暂时无法识别此位置，可手动填写名称后添加。');
+            } finally {
+              clearTimeout(timeout);
+              if (reverseController === controller) reverseController = null;
+            }
+          }, Math.max(300, 1100 - (Date.now() - lastRequestAt)));
+        }
+        const openOriginalTravelPage = openTravelPage;
+        openTravelPage = function () {
+          openOriginalTravelPage();
+          if (!travelMap || boundMap === travelMap) return;
+          boundMap = travelMap;
+          travelMap.on('click', onMapPick);
+          travelMap.on('popupclose', event => { if (current?.popup === event.popup) cancelPick(false); });
+        };
+        document.addEventListener('click', event => {
+          const nav = event.target.closest('[data-page]');
+          if ((nav && nav.dataset.page !== 'travel') || event.target.closest('#addDestination')) cancelPick();
+        });
+        window.addEventListener('pagehide', () => cancelPick(false));
+        renderTravelStats();
+        if (travelMap) openTravelPage();
       })();
     </script>
   </body>
