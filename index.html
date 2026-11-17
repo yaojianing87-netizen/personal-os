@@ -9,6 +9,18 @@
     <link rel="stylesheet" href="./styles.css" />
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <style>
+      #taskList { max-height: 340px; overflow-y: auto; }
+      .dashboard-focus-body { margin-top: 18px; padding: 18px; border-radius: 12px; background: color-mix(in srgb, var(--primary) 18%, var(--card)); }
+      .dashboard-focus-meta { display: flex; align-items: center; justify-content: space-between; gap: 10px; font-size: 11px; color: var(--muted); }
+      .dashboard-focus-time { display: block; font: 500 clamp(40px, 5vw, 56px)/1.2 Georgia, serif; font-variant-numeric: tabular-nums; color: var(--ink); margin: 10px 0; letter-spacing: .025em; }
+      .dashboard-focus-task { font-size: 12px; color: var(--muted); overflow-wrap: anywhere; margin: 0 0 12px; }
+      .dashboard-focus-progress { height: 5px; background: color-mix(in srgb, var(--ink) 10%, transparent); border-radius: 8px; overflow: hidden; }
+      .dashboard-focus-progress span { display: block; height: 100%; width: 0; background: var(--ink); border-radius: inherit; }
+      .dashboard-focus-actions { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 15px; }
+      .dashboard-focus-actions .primary-btn { min-width: 90px; }
+      .dashboard-focus-foot { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-top: 14px; }
+      .dashboard-focus-foot small { font-size: 10px; color: var(--muted); }
+      .dashboard-focus-foot .text-button:disabled { opacity: .5; cursor: default; text-decoration: none; }
       /* 笔记看板：总览与自由画布。旧 DOM 仅供旧版启动代码兼容，不再展示。 */
       #legacyNotes, #notes [hidden] { display: none !important; }
       #notes.notes-page { max-width: none; padding: 0 26px 30px; }
@@ -223,10 +235,16 @@
               <div class="task-list" id="taskList" aria-live="polite"></div>
               <button class="plain-add" id="quickTask">＋ 添加一项任务</button>
             </article>
-            <article class="card notes-card" data-module="notes">
-              <div class="card-heading"><span><i class="ink-dot"></i> 随手记</span><button class="more" id="dashboardAddNote" type="button" aria-label="新建笔记" title="新建笔记">＋</button></div>
-              <div class="note-paper" id="dashboardNotePreview"></div>
-              <div class="note-tabs"><button type="button" data-page="notes">打开笔记 →</button></div>
+            <article class="card dashboard-focus-card" data-module="focus-timer">
+              <div class="card-heading"><span><i class="ink-dot"></i> 专注</span><button class="text-button" data-page="focusmode" type="button">专注模式 →</button></div>
+              <div class="dashboard-focus-body">
+                <div class="dashboard-focus-meta"><span id="dashboardFocusMode">番茄钟</span><span id="dashboardFocusStatus" role="status">准备开始</span></div>
+                <output class="dashboard-focus-time" id="dashboardFocusTime" role="timer" aria-label="专注剩余时间" aria-live="off">25:00</output>
+                <p class="dashboard-focus-task" id="dashboardFocusTask">给自己留一段专注的时间。</p>
+                <div class="dashboard-focus-progress" id="dashboardFocusProgress" role="progressbar" aria-label="专注完成进度" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span id="dashboardFocusBar"></span></div>
+                <div class="dashboard-focus-actions"><button class="primary-btn" id="dashboardFocusToggle" type="button">开始专注</button><button class="outline-btn" id="dashboardFocusReset" type="button">重置时间</button></div>
+              </div>
+              <div class="dashboard-focus-foot"><small>与专注模式实时同步</small><button class="text-button" id="dashboardFocusSettings" type="button">设置时长</button></div>
             </article>
           </div>
         </div>
@@ -1133,6 +1151,90 @@
         renderLibrary(); updateDashboardNotePreview();
         if (readError) flush();
         else if (needsMigration) flush();
+      })();
+    </script>
+    <script>
+      (() => {
+        const $ = id => document.getElementById(id);
+        TASK_GROUP_LABELS.today = '今日';
+
+        function renderTodayTasks() {
+          const todayTasks = tasks.filter(task => taskBucket(task) === 'today').sort(taskViewComparator());
+          $('taskList').innerHTML = todayTasks.map(taskMarkup).join('') || '<p class="tasks-empty">今日还没有任务，点击右上角「＋」添加。</p>';
+          $('taskCount').textContent = String(todayTasks.filter(task => !task.completed).length);
+        }
+
+        // 复用原任务页的筛选、排序、折叠和加号处理；三组即使为空也始终显示。
+        const renderOriginalTasksPage = renderTasksPage;
+        renderTasksPage = function () {
+          renderOriginalTasksPage();
+          const list = $('tasksPageList');
+          for (const key of ['today', 'week', 'later']) {
+            let section = list.querySelector('[data-tk-group="' + key + '"]')?.closest('.tk-group');
+            const label = TASK_GROUP_LABELS[key];
+            if (!section) {
+              const collapsed = taskGroupsCollapsed[key];
+              section = document.createElement('section');
+              section.className = 'tk-group' + (collapsed ? ' is-collapsed' : '');
+              section.innerHTML = '<div class="tk-group-top"><button type="button" class="tk-group-head" data-tk-group="' + key + '" aria-expanded="' + !collapsed + '"><span class="tk-chevron" aria-hidden="true">⌄</span>' + label + '<em>0</em></button><button type="button" class="tk-group-add" data-tk-add="' + key + '" aria-label="在“' + label + '”中新建任务" title="在“' + label + '”中新建任务">＋</button></div><div class="tk-group-body"><p class="tk-group-empty"></p></div>';
+            }
+            const empty = section.querySelector('.tk-group-empty');
+            if (empty) empty.textContent = taskFilter === 'all' ? label + '还没有任务。' : '这个筛选下没有' + label + '任务。';
+            list.append(section);
+          }
+          renderTodayTasks();
+        };
+        const updateOriginalTaskCount = updateTaskCount;
+        updateTaskCount = function () {
+          updateOriginalTaskCount();
+          $('taskCount').textContent = String(tasks.filter(task => taskBucket(task) === 'today' && !task.completed).length);
+        };
+
+        function text(id, value) { if ($(id).textContent !== value) $(id).textContent = value; }
+        function renderDashboardFocus() {
+          // 时间直接取完整专注页面本次渲染的结果，两个面板不会各走一套倒计时。
+          text('dashboardFocusTime', $('fmTime').textContent);
+          text('dashboardFocusStatus', fmTimer.status === 'running' ? '专注中' : fmTimer.status === 'paused' ? '已暂停' : '准备开始');
+          const currentMode = fmActive() ? fmTimer.mode : fmSettings.mode;
+          text('dashboardFocusMode', FM_MODES[currentMode].label + ' · ' + Math.round(fmDuration() / 60) + ' 分钟');
+          const task = fmActive() ? tasks.find(item => item.id === fmTimer.taskId) : fmCurrentTask();
+          text('dashboardFocusTask', task?.title || (fmActive() ? fmTimer.taskTitle : '') || '给自己留一段专注的时间。');
+          text('dashboardFocusToggle', fmTimer.status === 'running' ? '暂停' : fmTimer.status === 'paused' ? '继续' : '开始专注');
+          const fraction = fmDuration() > 0 ? Math.max(0, Math.min(1, 1 - fmRemaining() / fmDuration())) : 0;
+          $('dashboardFocusBar').style.width = (fraction * 100) + '%';
+          $('dashboardFocusProgress').setAttribute('aria-valuenow', String(Math.round(fraction * 100)));
+          $('dashboardFocusSettings').disabled = fmActive();
+          $('dashboardFocusSettings').title = fmActive() ? '暂停后可继续；要更换时长，请先重置本次专注' : '设置与专注模式共用的任务和时长';
+        }
+        const renderOriginalFocusTimer = fmRenderTimer;
+        fmRenderTimer = function () {
+          renderOriginalFocusTimer();
+          renderDashboardFocus();
+        };
+        const renderOriginalFocusTask = fmRenderTask;
+        fmRenderTask = function () {
+          renderOriginalFocusTask();
+          renderDashboardFocus();
+        };
+        $('dashboardFocusToggle').addEventListener('click', () => {
+          const wasRunning = fmTimer.status === 'running';
+          fmTick();
+          if (wasRunning && fmTimer.status === 'idle') return;
+          $('fmStart').click();
+        });
+        $('dashboardFocusReset').addEventListener('click', () => { fmTick(); $('fmReset').click(); });
+        $('dashboardFocusSettings').addEventListener('click', fmOpenTaskDialog);
+
+        // 页面一直开着跨过午夜时，今日分组与首页一起更新。
+        let renderedDay = taskTodayKey();
+        function refreshDay() {
+          if (taskTodayKey() !== renderedDay) { renderedDay = taskTodayKey(); renderTasks(); }
+        }
+        setInterval(refreshDay, 60000);
+        window.addEventListener('focus', () => { refreshDay(); fmTick(); fmRenderTimer(); });
+        document.addEventListener('visibilitychange', () => { if (!document.hidden) { refreshDay(); fmTick(); fmRenderTimer(); } });
+        renderTasks();
+        fmRenderTimer();
       })();
     </script>
   </body>
