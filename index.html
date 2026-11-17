@@ -9,6 +9,95 @@
     <link rel="stylesheet" href="./styles.css" />
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <style>
+      /* 笔记看板：总览与自由画布。旧 DOM 仅供旧版启动代码兼容，不再展示。 */
+      #legacyNotes, #notes [hidden] { display: none !important; }
+      #notes.notes-page { max-width: none; padding: 30px 26px; }
+      .nb-library-head { display: flex; justify-content: space-between; gap: 20px; align-items: center; margin: 4px 0 28px; }
+      .nb-library-head h1 { font-size: clamp(28px, 4vw, 42px); margin: 4px 0 8px; letter-spacing: -.04em; font-weight: 750; color: #129eb8; }
+      .nb-sub { margin: 0; color: var(--muted); font-size: 12px; line-height: 1.8; }
+      .nb-new { border: 0; border-radius: 12px; padding: 13px 20px; background: #119bb5; color: white; font: inherit; font-size: 13px; font-weight: 700; cursor: pointer; white-space: nowrap; }
+      .nb-library-bar { display: flex; align-items: center; gap: 12px; margin-bottom: 20px; flex-wrap: wrap; }
+      .nb-search { border: 1px solid #86847c33; border-radius: 10px; background: var(--card); color: var(--ink); padding: 11px 14px; width: min(290px, 100%); font: inherit; font-size: 12px; }
+      .nb-count { font-size: 11px; color: var(--muted); margin-right: auto; }
+      .nb-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 24px; }
+      .nb-card { min-width: 0; position: relative; border: 1px solid #85847926; background: var(--card); border-radius: 17px; overflow: hidden; transition: transform .18s, box-shadow .18s; }
+      .nb-card:hover { transform: translateY(-3px); box-shadow: 0 10px 25px #33302e10; }
+      .nb-open { width: 100%; display: block; text-align: left; background: none; border: 0; padding: 0; color: var(--ink); cursor: pointer; font: inherit; }
+      .nb-preview { height: 180px; background: #fff; overflow: hidden; position: relative; pointer-events: none; }
+      .nb-mini-stage { position: absolute; transform-origin: top left; }
+      .nb-preview-empty { height: 100%; display: grid; place-content: center; color: #a3b5ba; font: 40px/1 Georgia, serif; }
+      .nb-card-foot { background: color-mix(in srgb, var(--paper) 65%, #f6f6f6); padding: 17px 42px 18px 18px; min-height: 83px; }
+      .nb-card-foot b { display: block; font-size: 15px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .nb-card-foot small { display: block; font-size: 11px; color: var(--muted); margin-top: 7px; }
+      .nb-card-delete { position: absolute; bottom: 24px; right: 12px; width: 28px; height: 28px; border: 0; border-radius: 7px; color: var(--muted); background: transparent; cursor: pointer; font-size: 19px; }
+      .nb-card-delete:hover { background: #d85c5c15; color: #ac4545; }
+      .nb-empty { grid-column: 1 / -1; padding: 85px 24px; border: 1px dashed #85847944; border-radius: 20px; text-align: center; }
+      .nb-empty span { display: block; font-size: 42px; color: #129eb8; }
+      .nb-empty h2 { font-size: 22px; font-weight: 600; margin: 18px 0 8px; }
+      .nb-empty p { font-size: 13px; color: var(--muted); line-height: 1.8; }
+      .nb-empty button { margin-top: 14px; }
+      .nb-editor { border: 1px solid #85847928; border-radius: 20px; background: #fff; overflow: hidden; box-shadow: 0 10px 35px #33302e08; }
+      .nb-editor-head { padding: 16px 18px; display: flex; align-items: center; gap: 12px; border-bottom: 1px solid #85847922; background: var(--card); flex-wrap: wrap; }
+      .nb-icon-btn { border: 1px solid #85847930; width: 36px; height: 36px; display: inline-grid; place-content: center; border-radius: 50%; font: inherit; font-size: 20px; line-height: 1; background: transparent; color: var(--ink); cursor: pointer; flex-shrink: 0; }
+      .nb-title { border: 0; background: transparent; color: var(--ink); font-family: inherit; font-size: 19px; font-weight: 650; line-height: 1.4; min-width: 0; flex: 1; width: 150px; padding: 6px 0; }
+      .nb-save-state { font-size: 10px; color: var(--muted); white-space: nowrap; }
+      .nb-save-state[data-error="true"] { color: #ad3f3f; font-weight: 700; white-space: normal; }
+      .nb-tools { display: flex; gap: 5px; padding: 10px 16px; align-items: center; flex-wrap: wrap; background: var(--card); border-bottom: 1px solid #85847922; }
+      .nb-tool { border: 0; border-radius: 8px; background: transparent; color: var(--ink); cursor: pointer; padding: 9px 11px; font: inherit; font-size: 12px; display: inline-flex; align-items: center; gap: 6px; }
+      .nb-tool span { font-size: 17px; line-height: 1; }
+      .nb-tool:hover, .nb-tool[aria-pressed="true"] { background: #129eb815; color: #087e94; }
+      .nb-tool:disabled, .nb-icon-btn:disabled { opacity: .3; cursor: default; }
+      .nb-divider { width: 1px; height: 22px; background: #85847933; margin: 0 5px; }
+      .nb-properties { display: flex; gap: 7px; padding: 9px 18px; align-items: center; background: var(--card); border-bottom: 1px solid #85847922; min-height: 43px; flex-wrap: wrap; }
+      .nb-properties label { font-size: 11px; color: var(--muted); margin: 0 6px 0 0; }
+      .nb-swatch { width: 22px; height: 22px; border-radius: 50%; border: 1px solid #5f5b4940; cursor: pointer; }
+      .nb-swatch[aria-pressed="true"] { outline: 2px solid #129eb8; outline-offset: 2px; }
+      .nb-properties select { border: 1px solid #85847944; padding: 3px 5px; border-radius: 5px; font: inherit; font-size: 11px; background: var(--card); color: var(--ink); }
+      .nb-hint { margin-left: auto; color: var(--muted); font-size: 10px; }
+      .nb-viewport { height: min(68vh, 800px); min-height: 420px; overflow: auto; position: relative; background: #fafcfc; overscroll-behavior: contain; }
+      .nb-canvas-space { position: relative; }
+      .nb-canvas { position: absolute; top: 0; left: 0; transform-origin: top left; background-color: #fff; background-image: radial-gradient(#bac5c9 1px, transparent 1px); background-size: 24px 24px; touch-action: pan-x pan-y; }
+      .nb-canvas[data-mode="pen"] { cursor: crosshair; touch-action: none; }
+      .nb-canvas[data-mode="hand"] { cursor: grab; touch-action: none; }
+      .nb-canvas[data-mode="hand"] .nb-object { pointer-events: none; }
+      .nb-canvas[data-mode="pen"] .nb-object { pointer-events: none; }
+      .nb-object { position: absolute; border: 1px solid transparent; border-radius: 4px; color: #343b3e; }
+      .nb-object[data-type="sticky"] { box-shadow: 3px 6px 14px #514a2920; border-radius: 2px 2px 12px 2px; }
+      .nb-object[data-type="shape"] { border: 2px solid #42535b; border-radius: 22px; }
+      .nb-object.is-selected { outline: 2px solid #129eb8; outline-offset: 3px; z-index: 2; }
+      .nb-object-text { resize: none; border: 0; outline: 0; width: 100%; height: 100%; background: transparent; color: inherit; font-family: inherit; font-size: inherit; line-height: 1.6; padding: 20px; display: block; white-space: pre-wrap; overflow-wrap: anywhere; }
+      .nb-object[data-type="text"] .nb-object-text { padding: 8px 12px; }
+      .nb-object[data-type="shape"] .nb-object-text { text-align: center; padding: 22px 12px; }
+      .nb-object img, .nb-object svg { width: 100%; height: 100%; display: block; object-fit: contain; pointer-events: none; }
+      .nb-object img { border-radius: 6px; }
+      .nb-drag { position: absolute; top: -25px; left: 0; display: none; height: 22px; border: 0; border-radius: 5px 5px 0 0; padding: 2px 9px; color: #087e94; background: #e4f5f8; cursor: grab; font-size: 11px; touch-action: none; }
+      .nb-object.is-selected .nb-drag { display: block; }
+      .nb-resize { display: none; position: absolute; right: -7px; bottom: -7px; width: 13px; height: 13px; border: 2px solid #129eb8; background: #fff; border-radius: 2px; cursor: nwse-resize; touch-action: none; }
+      .nb-object.is-selected .nb-resize { display: block; }
+      .nb-live-stroke { position: absolute; inset: 0; pointer-events: none; overflow: visible; }
+      .nb-editor-foot { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 16px; background: var(--card); border-top: 1px solid #85847922; font-size: 11px; color: var(--muted); }
+      .nb-zoom { display: flex; align-items: center; gap: 3px; }
+      .nb-zoom button { border: 0; background: transparent; color: var(--ink); font: inherit; cursor: pointer; padding: 5px 9px; border-radius: 6px; }
+      .nb-zoom button:hover { background: #129eb815; }
+      .nb-mini-stage .nb-object { overflow: hidden; }
+      .nb-mini-stage .nb-object-text { display: block; white-space: pre-wrap; }
+      .nb-tool:focus-visible, .nb-open:focus-visible, .nb-new:focus-visible, .nb-icon-btn:focus-visible { outline: 2px solid #129eb8; outline-offset: -3px; }
+      @media (max-width: 760px) {
+        #notes.notes-page { padding: 20px 8px; }
+        .nb-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+        .nb-preview { height: 145px; }
+        .nb-editor-head { gap: 8px; padding: 12px; }
+        .nb-title { font-size: 16px; }
+        .nb-save-state { flex-basis: 100%; padding-left: 44px; }
+        .nb-tools { padding: 8px; gap: 2px; }
+        .nb-tool { padding: 8px; }
+        .nb-hint { display: none; }
+        .nb-properties { padding: 9px 12px; }
+        .nb-editor-foot > span { display: none; }
+        .nb-viewport { min-height: 430px; height: 62vh; }
+      }
+      @media (max-width: 420px) { .nb-grid { grid-template-columns: 1fr; } }
+
       .agenda-item > div { min-width: 0; overflow-wrap: anywhere; }
       .agenda-item time small { overflow-wrap: anywhere; }
       .agenda-item p { white-space: pre-wrap; }
@@ -186,7 +275,40 @@
           </div>
         </div>
 <div class="page simple-page" id="calendar"><div class="page-intro"><div><p class="eyebrow">PLAN & REMEMBER</p><h1 class="sr-only">日历</h1><p class="compact-page-title">Calendar</p></div><button class="outline-btn" id="addCalendarNote" type="button">＋ 新建日程</button></div><section class="calendar-placeholder calendar-feature" aria-label="日历"><div class="calendar-top"><button class="calendar-arrow" id="previousCalendarMonth" aria-label="上一个月" type="button">‹</button><b id="calendarTitle">日历</b><button class="calendar-arrow" id="nextCalendarMonth" aria-label="下一个月" type="button">›</button></div><p class="calendar-hint">点击日期创建日程；点击已有日程可编辑。所有内容会自动保存。</p><div class="calendar-grid" id="calendarGrid" aria-live="polite"></div></section></div>
-        <div class="page simple-page notes-page" id="notes"><div class="page-intro"><div><p class="eyebrow">CAPTURE & KEEP</p><h1 class="sr-only">笔记</h1><p class="compact-page-title">Notes</p></div><div class="notes-actions"><button class="outline-btn" id="addFolder" type="button">＋ 文件夹</button><button class="primary-btn" id="addNote" type="button">＋ 新建笔记</button></div></div><section class="notes-workspace"><div class="notes-browser"><nav class="notes-path" id="notesPath" aria-label="笔记路径"></nav><div class="notes-items" id="notesItems" aria-live="polite"></div></div><aside class="note-editor" id="noteEditor" hidden><div class="note-editor-top"><span class="eyebrow">自动保存</span><button class="text-button" id="deleteNote" type="button">删除笔记</button></div><label class="sr-only" for="noteTitle">笔记标题，可直接编辑以重命名</label><input id="noteTitle" maxlength="160" placeholder="笔记标题" aria-label="笔记标题，输入内容会自动保存" /><label class="sr-only" for="noteBody">笔记正文</label><textarea id="noteBody" placeholder="开始写下你的想法…" aria-label="笔记正文，输入内容会自动保存"></textarea></aside></section></div>
+        <div class="page simple-page notes-page" id="notes">
+          <section id="nbLibrary" aria-label="所有看板">
+            <header class="nb-library-head">
+              <div><p class="eyebrow">NOTES · FREE YOUR IDEAS</p><h1>所有看板</h1><p class="nb-sub">一张画布，装下自由生长的想法。<br>内容仅保存在当前浏览器，自动保存。</p></div>
+              <button class="nb-new" id="nbNewBoard" type="button">＋ 新建看板</button>
+            </header>
+            <div class="nb-library-bar"><label class="sr-only" for="nbSearch">搜索看板</label><input class="nb-search" id="nbSearch" type="search" placeholder="搜索看板标题与内容…" /><span class="nb-count" id="nbCount"></span><button class="text-button" id="nbRestoreBoard" type="button" hidden>撤销删除看板</button></div>
+            <p class="nb-sub" id="nbLibraryStatus" role="status"></p>
+            <div class="nb-grid" id="nbGrid"></div>
+          </section>
+          <section class="nb-editor" id="nbEditor" aria-label="看板画布" hidden>
+            <header class="nb-editor-head"><button class="nb-icon-btn" id="nbBack" type="button" aria-label="返回所有看板">‹</button><label class="sr-only" for="nbTitle">看板标题</label><input class="nb-title" id="nbTitle" maxlength="160" placeholder="未命名看板" /><span class="nb-save-state" id="nbSaveState" role="status">已保存到此浏览器</span></header>
+            <div class="nb-tools" role="toolbar" aria-label="画布工具">
+              <button class="nb-tool" type="button" data-nb-mode="select" aria-pressed="true" title="选择和编辑"><span aria-hidden="true">↖</span>选择</button>
+              <button class="nb-tool" type="button" data-nb-mode="hand" aria-pressed="false" title="拖动画布"><span aria-hidden="true">✥</span>漫游</button>
+              <span class="nb-divider" aria-hidden="true"></span>
+              <button class="nb-tool" type="button" data-nb-add="sticky"><span aria-hidden="true">▧</span>便签</button>
+              <button class="nb-tool" type="button" data-nb-add="text"><span aria-hidden="true">T</span>文字</button>
+              <button class="nb-tool" type="button" data-nb-add="shape"><span aria-hidden="true">▢</span>图形</button>
+              <button class="nb-tool" type="button" data-nb-mode="pen" aria-pressed="false"><span aria-hidden="true">✎</span>画笔</button>
+              <button class="nb-tool" id="nbAddImage" type="button"><span aria-hidden="true">▧</span>图片</button>
+              <input id="nbImageInput" type="file" accept="image/png,image/jpeg,image/webp" hidden />
+              <span class="nb-divider" aria-hidden="true"></span>
+              <button class="nb-tool" id="nbUndo" type="button" disabled aria-label="撤销画布修改">↶ 撤销</button>
+              <button class="nb-tool" id="nbRedo" type="button" disabled aria-label="重做画布修改">↷ 重做</button>
+              <button class="nb-tool" id="nbDeleteItem" type="button" disabled>删除所选</button>
+            </div>
+            <div class="nb-properties" aria-label="内容样式"><label>颜色</label><button class="nb-swatch" style="background:#fff1a8" data-nb-color="#fff1a8" type="button" aria-label="浅黄色" aria-pressed="true"></button><button class="nb-swatch" style="background:#ffd9d9" data-nb-color="#ffd9d9" type="button" aria-label="浅粉色" aria-pressed="false"></button><button class="nb-swatch" style="background:#d7effa" data-nb-color="#d7effa" type="button" aria-label="浅蓝色" aria-pressed="false"></button><button class="nb-swatch" style="background:#dcefd9" data-nb-color="#dcefd9" type="button" aria-label="浅绿色" aria-pressed="false"></button><button class="nb-swatch" style="background:#e9e0fa" data-nb-color="#e9e0fa" type="button" aria-label="浅紫色" aria-pressed="false"></button><label for="nbFontSize">字号</label><select id="nbFontSize"><option value="16">16</option><option value="20" selected>20</option><option value="28">28</option><option value="36">36</option></select><span class="nb-hint" id="nbHint">双击空白添加文字 · 拖动内容上方手柄移动 · 右下角调整大小</span></div>
+            <div class="nb-viewport" id="nbViewport" tabindex="0" aria-label="自由画布，使用漫游工具拖动或滚动查看"><div class="nb-canvas-space" id="nbCanvasSpace"><div class="nb-canvas" id="nbCanvas" data-mode="select"></div></div></div>
+            <footer class="nb-editor-foot"><span id="nbItemCount">0 个内容</span><div class="nb-zoom"><button id="nbZoomOut" type="button" aria-label="缩小画布">−</button><button id="nbZoomReset" type="button" aria-label="恢复百分之百缩放">100%</button><button id="nbZoomIn" type="button" aria-label="放大画布">＋</button><button id="nbFit" type="button">适合内容</button></div></footer>
+          </section>
+        </div>
+
+        <div id="legacyNotes" hidden inert><div class="page-intro"><div><p class="eyebrow">CAPTURE & KEEP</p><h1 class="sr-only">笔记</h1><p class="compact-page-title">Notes</p></div><div class="notes-actions"><button class="outline-btn" id="addFolder" type="button">＋ 文件夹</button><button class="primary-btn" id="addNote" type="button">＋ 新建笔记</button></div></div><section class="notes-workspace"><div class="notes-browser"><nav class="notes-path" id="notesPath" aria-label="笔记路径"></nav><div class="notes-items" id="notesItems" aria-live="polite"></div></div><aside class="note-editor" id="noteEditor" hidden><div class="note-editor-top"><span class="eyebrow">自动保存</span><button class="text-button" id="deleteNote" type="button">删除笔记</button></div><label class="sr-only" for="noteTitle">笔记标题，可直接编辑以重命名</label><input id="noteTitle" maxlength="160" placeholder="笔记标题" aria-label="笔记标题，输入内容会自动保存" /><label class="sr-only" for="noteBody">笔记正文</label><textarea id="noteBody" placeholder="开始写下你的想法…" aria-label="笔记正文，输入内容会自动保存"></textarea></aside></section></div>
         <div class="page simple-page" id="goals"><div class="page-intro"><div><p class="eyebrow">DIRECTION</p><h1 class="sr-only">目标</h1><p class="compact-page-title">Goals</p></div></div><div class="empty-feature"><span>↗</span><h2>正在前往的地方</h2><p>创建目标与手动更新进度将在下一阶段启用。</p></div></div>
         <div class="page fm-page" id="focusmode">
           <header class="fm-head">
@@ -444,49 +566,435 @@
       })();
     </script>
     <script>
-      document.querySelector('#addFolder')?.remove();
-      document.querySelector('#folderDialog')?.remove();
-      const notesItems = document.querySelector('#notesItems');
-      const updateEmptyNotesMessage = () => {
-        const empty = notesItems?.querySelector('.notes-empty');
-        if (empty) empty.textContent = '这里还没有内容。点击“新建笔记”开始记录。';
-      };
-      if (notesItems) {
-        new MutationObserver(updateEmptyNotesMessage).observe(notesItems, { childList: true });
-        updateEmptyNotesMessage();
-
-        const addDeleteButtons = () => {
-          notesItems.querySelectorAll('[data-open-note]').forEach(noteButton => {
-            if (noteButton.parentElement?.classList.contains('note-item-row')) return;
-            const row = document.createElement('div');
-            row.className = 'note-item-row';
-            const deleteButton = document.createElement('button');
-            deleteButton.type = 'button';
-            deleteButton.className = 'note-delete';
-            deleteButton.dataset.deleteNote = noteButton.dataset.openNote;
-            deleteButton.setAttribute('aria-label', '删除笔记');
-            deleteButton.textContent = '删除';
-            noteButton.before(row);
-            row.append(noteButton, deleteButton);
-          });
+      (() => {
+        'use strict';
+        const KEY = 'atelier-note-boards';
+        const $ = id => document.getElementById(id);
+        const palette = ['#fff1a8', '#ffd9d9', '#d7effa', '#dcefd9', '#e9e0fa'];
+        const ink = { '#fff1a8': '#66541b', '#ffd9d9': '#b74657', '#d7effa': '#297a9f', '#dcefd9': '#49834b', '#e9e0fa': '#7955a9' };
+        const clone = value => JSON.parse(JSON.stringify(value));
+        const bounded = (value, fallback, min, max) => Number.isFinite(value) ? Math.max(min, Math.min(max, value)) : fallback;
+        const make = (tag, className, text) => {
+          const el = document.createElement(tag);
+          if (className) el.className = className;
+          if (text !== undefined) el.textContent = text;
+          return el;
         };
-        new MutationObserver(addDeleteButtons).observe(notesItems, { childList: true });
-        addDeleteButtons();
+        let readError = false;
+        let needsMigration = false;
+        let dirty = false;
+        let saveTimer;
+        let activeId = null;
+        let selectedId = null;
+        let mode = 'select';
+        let color = palette[0];
+        let fontSize = 20;
+        let zoom = 1;
+        let gesture = null;
+        let history = [];
+        let future = [];
+        let editingId = null;
+        let previewObserver;
 
-        notesItems.addEventListener('click', event => {
-          const deleteButton = event.target.closest('[data-delete-note]');
-          if (!deleteButton) return;
-          event.preventDefault();
-          event.stopPropagation();
-          const noteId = deleteButton.dataset.deleteNote;
-          if (!noteStore.notes.some(note => note.id === noteId) || !confirm('删除这篇笔记？此操作无法撤销。')) return;
-          noteStore.notes = noteStore.notes.filter(note => note.id !== noteId);
-          if (activeNoteId === noteId) activeNoteId = null;
-          saveNotes();
-          renderNotes();
-          show('笔记已删除');
+        function normalizeItem(raw) {
+          if (!raw || !['sticky', 'text', 'shape', 'image', 'drawing'].includes(raw.type)) return null;
+          if (raw.type === 'image' && (typeof raw.src !== 'string' || !/^data:image\/(png|jpeg|webp);base64,/.test(raw.src))) return null;
+          const item = {
+            id: typeof raw.id === 'string' && raw.id ? raw.id : newId(), type: raw.type,
+            x: bounded(raw.x, 160, 0, 50000), y: bounded(raw.y, 120, 32, 50000),
+            w: bounded(raw.w, 240, raw.type === 'drawing' ? 6 : 40, 3000), h: bounded(raw.h, 190, raw.type === 'drawing' ? 6 : 30, 3000),
+            text: typeof raw.text === 'string' ? raw.text : '',
+            color: palette.includes(raw.color) ? raw.color : palette[0],
+            fontSize: bounded(raw.fontSize, 20, 12, 72)
+          };
+          if (raw.type === 'image') item.src = raw.src;
+          if (raw.type === 'drawing') {
+            item.points = Array.isArray(raw.points) ? raw.points.filter(p => Array.isArray(p) && p.length === 2 && p.every(Number.isFinite)).slice(0, 20000).map(p => p.map(n => Math.max(0, Math.min(1, n)))) : [];
+            if (item.points.length < 2) return null;
+          }
+          return item;
+        }
+        function loadBoards() {
+          try {
+            const raw = localStorage.getItem(KEY);
+            if (raw !== null) {
+              const saved = JSON.parse(raw);
+              if (!saved || saved.version !== 1 || !Array.isArray(saved.boards)) throw new Error('看板数据格式无法识别');
+              const normalizeBoard = b => ({
+                id: typeof b.id === 'string' && b.id ? b.id : newId(), title: typeof b.title === 'string' ? b.title : '未命名看板',
+                updatedAt: Number.isFinite(b.updatedAt) ? b.updatedAt : Date.now(),
+                items: (Array.isArray(b.items) ? b.items : []).map(normalizeItem).filter(Boolean)
+              });
+              return { version: 1, boards: saved.boards.filter(b => b && typeof b === 'object').map(normalizeBoard), trash: (Array.isArray(saved.trash) ? saved.trash : []).filter(b => b && typeof b === 'object').map(normalizeBoard) };
+            }
+            needsMigration = true;
+            // 每篇旧笔记转为一张看板；原 atelier-notes 保持原样，作为迁移前备份。
+            return { version: 1, boards: noteStore.notes.map(note => ({
+              id: newId(), title: note.title || '未命名看板', updatedAt: Date.now(),
+              items: note.body ? [{ id: newId(), type: 'text', text: note.body, x: 160, y: 120, w: 540, h: 520, color: palette[0], fontSize: 20 }] : []
+            })), trash: [] };
+          } catch (error) {
+            readError = true;
+            return { version: 1, boards: [], trash: [] };
+          }
+        }
+        let store = loadBoards();
+        const board = () => store.boards.find(b => b.id === activeId);
+        const selected = () => board()?.items.find(i => i.id === selectedId);
+
+        function status(text, error = false) {
+          $('nbSaveState').textContent = text;
+          $('nbSaveState').dataset.error = String(error);
+          $('nbLibraryStatus').textContent = error ? text : '';
+        }
+        function flush() {
+          clearTimeout(saveTimer);
+          if (readError) { status('无法读取已有看板，请保留浏览器数据并检查存储设置。为保护原内容，已暂停保存。', true); return false; }
+          try {
+            localStorage.setItem(KEY, JSON.stringify(store));
+            dirty = false;
+            status('已保存到此浏览器');
+            updateDashboardNotePreview();
+            return true;
+          } catch (error) {
+            dirty = true;
+            status('尚未保存：浏览器存储不足或不可用。请撤销大图片，或保留本页后重试。', true);
+            return false;
+          }
+        }
+        function persist() {
+          if (board()) board().updatedAt = Date.now();
+          dirty = true;
+          status('正在保存…');
+          clearTimeout(saveTimer);
+          saveTimer = setTimeout(flush, 220);
+        }
+        function remember() {
+          if (!board()) return;
+          history.push(clone(board().items));
+          if (history.length > 40) history.shift();
+          future = [];
+          updateControls();
+        }
+        function undo(redo = false) {
+          if (!board()) return;
+          const from = redo ? future : history;
+          const to = redo ? history : future;
+          if (!from.length) return;
+          to.push(clone(board().items));
+          board().items = from.pop();
+          selectedId = null;
+          editingId = null;
+          renderCanvas();
+          persist();
+        }
+        function updateControls() {
+          $('nbUndo').disabled = !history.length;
+          $('nbRedo').disabled = !future.length;
+          $('nbDeleteItem').disabled = !selected();
+          $('nbItemCount').textContent = (board()?.items.length || 0) + ' 个内容';
+          $('nbFontSize').value = String(selected()?.fontSize || fontSize);
+          document.querySelectorAll('[data-nb-color]').forEach(button => button.setAttribute('aria-pressed', String(button.dataset.nbColor === (selected()?.color || color))));
+        }
+        function setMode(next) {
+          mode = next;
+          $('nbCanvas').dataset.mode = next;
+          document.querySelectorAll('[data-nb-mode]').forEach(button => button.setAttribute('aria-pressed', String(button.dataset.nbMode === next)));
+          $('nbHint').textContent = next === 'pen' ? '在空白处按住绘画 · 点击选择工具结束绘画' : next === 'hand' ? '按住画布拖动，自由查看各处内容' : '双击空白添加文字 · 拖动内容上方手柄移动 · 右下角调整大小';
+        }
+        function select(id) {
+          selectedId = id;
+          $('nbCanvas').querySelectorAll('.nb-object').forEach(el => el.classList.toggle('is-selected', el.dataset.itemId === id));
+          updateControls();
+        }
+        function objectStyle(el, item) {
+          Object.assign(el.style, { left: item.x + 'px', top: item.y + 'px', width: item.w + 'px', height: item.h + 'px', fontSize: item.fontSize + 'px', backgroundColor: ['sticky', 'shape'].includes(item.type) ? item.color : 'transparent' });
+        }
+        function objectElement(item, miniature = false) {
+          const el = make('div', 'nb-object');
+          el.dataset.itemId = item.id;
+          el.dataset.type = item.type;
+          objectStyle(el, item);
+          if (item.type === 'image') {
+            const img = make('img'); img.src = item.src; img.alt = '看板图片'; el.append(img);
+          } else if (item.type === 'drawing') {
+            const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+            svg.setAttribute('viewBox', '0 0 1000 1000'); svg.setAttribute('preserveAspectRatio', 'none');
+            const path = document.createElementNS(svg.namespaceURI, 'polyline');
+            path.setAttribute('points', item.points.map(p => p[0] * 1000 + ',' + p[1] * 1000).join(' '));
+            path.setAttribute('fill', 'none'); path.setAttribute('stroke', ink[item.color]); path.setAttribute('stroke-width', '3'); path.setAttribute('vector-effect', 'non-scaling-stroke'); path.setAttribute('stroke-linecap', 'round'); path.setAttribute('stroke-linejoin', 'round');
+            svg.append(path); el.append(svg);
+          } else {
+            const text = make(miniature ? 'div' : 'textarea', 'nb-object-text');
+            if (miniature) text.textContent = item.text;
+            else {
+              text.value = item.text;
+              text.placeholder = item.type === 'sticky' ? '写下一点想法…' : item.type === 'shape' ? '写点什么…' : '在这里输入文字…';
+              text.setAttribute('aria-label', item.type === 'sticky' ? '便签内容' : item.type === 'shape' ? '图形文字' : '文字内容');
+              text.addEventListener('focus', () => { select(item.id); editingId = null; });
+              text.addEventListener('input', () => {
+                if (editingId !== item.id) { remember(); editingId = item.id; }
+                item.text = text.value; persist();
+              });
+              text.addEventListener('blur', () => { editingId = null; });
+            }
+            el.append(text);
+          }
+          if (!miniature) {
+            const drag = make('button', 'nb-drag', '⠿ 移动'); drag.type = 'button'; drag.dataset.nbDrag = 'true'; drag.setAttribute('aria-label', '移动所选内容，方向键可微调');
+            const resize = make('button', 'nb-resize'); resize.type = 'button'; resize.dataset.nbResize = 'true'; resize.setAttribute('aria-label', '拖动调整内容大小');
+            el.append(drag, resize);
+            el.addEventListener('pointerdown', () => { if (mode === 'select') select(item.id); });
+            if (item.id === selectedId) el.classList.add('is-selected');
+          }
+          return el;
+        }
+        function canvasSize() {
+          const items = board()?.items || [];
+          return { w: Math.max(2400, ...items.map(i => i.x + i.w + 500)), h: Math.max(1800, ...items.map(i => i.y + i.h + 500)) };
+        }
+        function sizeCanvas() {
+          const size = canvasSize();
+          Object.assign($('nbCanvas').style, { width: size.w + 'px', height: size.h + 'px', transform: 'scale(' + zoom + ')' });
+          Object.assign($('nbCanvasSpace').style, { width: size.w * zoom + 'px', height: size.h * zoom + 'px' });
+          $('nbZoomReset').textContent = Math.round(zoom * 100) + '%';
+        }
+        function renderCanvas() {
+          const b = board(); if (!b) return;
+          $('nbCanvas').replaceChildren(...b.items.map(i => objectElement(i)));
+          sizeCanvas(); updateControls();
+        }
+        function formatUpdated(timestamp) {
+          return new Intl.DateTimeFormat('zh-CN', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }).format(new Date(timestamp));
+        }
+        function renderLibrary() {
+          previewObserver?.disconnect();
+          const query = $('nbSearch').value.trim().toLocaleLowerCase();
+          const boards = [...store.boards].sort((a, b) => b.updatedAt - a.updatedAt).filter(b => (b.title + ' ' + b.items.map(i => i.text || '').join(' ')).toLocaleLowerCase().includes(query));
+          $('nbGrid').replaceChildren();
+          $('nbCount').textContent = store.boards.length + ' 张看板 · 最近编辑优先';
+          $('nbRestoreBoard').hidden = !store.trash.length;
+          if (!boards.length) {
+            const empty = make('div', 'nb-empty');
+            empty.append(make('span', '', '▧'), make('h2', '', query ? '没有找到这张看板' : '从一张空白画布开始'), make('p', '', query ? '试试其他标题或内容关键词。' : '便签、文字、图片与手绘，都可以在这里自由展开。'));
+            if (!query) { const button = make('button', 'nb-new', '＋ 创建第一张看板'); button.type = 'button'; button.addEventListener('click', createBoard); empty.append(button); }
+            $('nbGrid').append(empty);
+          }
+          boards.forEach(b => {
+            const card = make('article', 'nb-card');
+            const open = make('button', 'nb-open'); open.type = 'button'; open.setAttribute('aria-label', '打开看板：' + (b.title || '未命名看板'));
+            const preview = make('div', 'nb-preview'); preview.setAttribute('aria-hidden', 'true');
+            if (b.items.length) {
+              const mini = make('div', 'nb-mini-stage');
+              const minX = Math.min(...b.items.map(i => i.x)) - 40, minY = Math.min(...b.items.map(i => i.y)) - 40;
+              const width = Math.max(650, ...b.items.map(i => i.x + i.w - minX + 40));
+              const height = Math.max(450, ...b.items.map(i => i.y + i.h - minY + 40));
+              mini.style.width = width + 'px'; mini.style.height = height + 'px';
+              b.items.forEach(i => mini.append(objectElement({ ...i, x: i.x - minX, y: i.y - minY }, true)));
+              preview.append(mini); preview.dataset.width = width; preview.dataset.height = height;
+            } else preview.append(make('div', 'nb-preview-empty', '＋'));
+            const foot = make('div', 'nb-card-foot'); foot.append(make('b', '', b.title || '未命名看板'), make('small', '', formatUpdated(b.updatedAt) + ' · ' + b.items.length + ' 个内容'));
+            open.append(preview, foot); open.addEventListener('click', () => openBoard(b.id));
+            const remove = make('button', 'nb-card-delete', '×'); remove.type = 'button'; remove.setAttribute('aria-label', '删除看板：' + (b.title || '未命名看板'));
+            remove.addEventListener('click', () => {
+              store.boards = store.boards.filter(item => item.id !== b.id);
+              store.trash.push(b);
+              persist(); renderLibrary();
+            });
+            card.append(open, remove); $('nbGrid').append(card);
+          });
+          previewObserver = new ResizeObserver(entries => entries.forEach(({ target }) => {
+            const mini = target.querySelector('.nb-mini-stage'); if (!mini) return;
+            const width = Number(target.dataset.width), height = Number(target.dataset.height);
+            const scale = Math.min(target.clientWidth / width, target.clientHeight / height) * .88;
+            Object.assign(mini.style, { transform: 'scale(' + scale + ')', left: (target.clientWidth - width * scale) / 2 + 'px', top: (target.clientHeight - height * scale) / 2 + 'px' });
+          }));
+          $('nbGrid').querySelectorAll('.nb-preview[data-width]').forEach(p => previewObserver.observe(p));
+        }
+        function openBoard(id) {
+          if (readError) return;
+          activeId = id; selectedId = null; history = []; future = []; editingId = null; zoom = 1;
+          $('nbLibrary').hidden = true; $('nbEditor').hidden = false;
+          $('nbTitle').value = board().title;
+          setMode('select'); renderCanvas();
+          $('nbViewport').scrollTo(0, 0);
+          if (board().items.length) fit(1);
+          window.scrollTo(0, 0);
+        }
+        function createBoard() {
+          if (readError) { flush(); return; }
+          const b = { id: newId(), title: '未命名看板', updatedAt: Date.now(), items: [] };
+          store.boards.push(b); openBoard(b.id); persist();
+          $('nbTitle').focus(); $('nbTitle').select();
+        }
+        function addItem(type, position, extra = {}) {
+          if (!board()) return;
+          remember(); setMode('select');
+          const viewport = $('nbViewport');
+          const offset = board().items.length % 5 * 24;
+          const item = { id: newId(), type, text: '', color, fontSize, w: type === 'text' ? 320 : 240, h: type === 'text' ? 150 : 190,
+            x: position?.x ?? Math.max(40, (viewport.scrollLeft + viewport.clientWidth / 2) / zoom - 120 + offset),
+            y: position?.y ?? Math.max(50, (viewport.scrollTop + viewport.clientHeight / 2) / zoom - 95 + offset), ...extra };
+          board().items.push(item); selectedId = item.id; renderCanvas(); persist();
+          const el = [...$('nbCanvas').children].find(el => el.dataset.itemId === item.id);
+          el?.querySelector('textarea')?.focus();
+        }
+        function deleteItem() {
+          if (!selected()) return;
+          remember(); board().items = board().items.filter(i => i.id !== selectedId); selectedId = null;
+          renderCanvas(); persist();
+        }
+        function changeZoom(next) {
+          const viewport = $('nbViewport');
+          const x = (viewport.scrollLeft + viewport.clientWidth / 2) / zoom;
+          const y = (viewport.scrollTop + viewport.clientHeight / 2) / zoom;
+          zoom = Math.max(.25, Math.min(2, next)); sizeCanvas();
+          viewport.scrollLeft = x * zoom - viewport.clientWidth / 2;
+          viewport.scrollTop = y * zoom - viewport.clientHeight / 2;
+        }
+        function fit(maxZoom = 1.5) {
+          const items = board()?.items || []; if (!items.length) { changeZoom(1); return; }
+          const minX = Math.max(0, Math.min(...items.map(i => i.x)) - 60), minY = Math.max(0, Math.min(...items.map(i => i.y)) - 60);
+          const width = Math.max(...items.map(i => i.x + i.w)) - minX + 60;
+          const height = Math.max(...items.map(i => i.y + i.h)) - minY + 60;
+          zoom = Math.max(.25, Math.min(maxZoom, $('nbViewport').clientWidth / width, $('nbViewport').clientHeight / height));
+          sizeCanvas(); $('nbViewport').scrollTo(minX * zoom, minY * zoom);
+        }
+
+        $('nbNewBoard').addEventListener('click', createBoard);
+        $('nbSearch').addEventListener('input', renderLibrary);
+        $('nbBack').addEventListener('click', () => {
+          flush(); activeId = null; selectedId = null;
+          $('nbEditor').hidden = true; $('nbLibrary').hidden = false; renderLibrary();
+          window.scrollTo(0, 0);
         });
-      }
+        $('nbTitle').addEventListener('input', () => { if (board()) { board().title = $('nbTitle').value; persist(); } });
+        $('nbRestoreBoard').addEventListener('click', () => {
+          const b = store.trash.pop(); if (!b) return;
+          b.updatedAt = Date.now(); store.boards.push(b); persist(); renderLibrary();
+        });
+        document.querySelectorAll('[data-nb-add]').forEach(button => button.addEventListener('click', () => addItem(button.dataset.nbAdd)));
+        document.querySelectorAll('[data-nb-mode]').forEach(button => button.addEventListener('click', () => setMode(button.dataset.nbMode)));
+        document.querySelectorAll('[data-nb-color]').forEach(button => button.addEventListener('click', () => {
+          color = button.dataset.nbColor;
+          if (selected()) { remember(); selected().color = color; renderCanvas(); persist(); }
+          updateControls();
+        }));
+        $('nbFontSize').addEventListener('change', () => {
+          fontSize = Number($('nbFontSize').value);
+          if (selected()) { remember(); selected().fontSize = fontSize; renderCanvas(); persist(); }
+        });
+        $('nbUndo').addEventListener('click', () => undo()); $('nbRedo').addEventListener('click', () => undo(true));
+        $('nbDeleteItem').addEventListener('click', deleteItem);
+        $('nbZoomOut').addEventListener('click', () => changeZoom(zoom - .1));
+        $('nbZoomIn').addEventListener('click', () => changeZoom(zoom + .1));
+        $('nbZoomReset').addEventListener('click', () => changeZoom(1)); $('nbFit').addEventListener('click', () => fit());
+        $('nbViewport').addEventListener('wheel', event => {
+          if (event.ctrlKey || event.metaKey) { event.preventDefault(); changeZoom(zoom * (event.deltaY < 0 ? 1.1 : .9)); }
+        }, { passive: false });
+        $('nbCanvas').addEventListener('dblclick', event => {
+          if (event.target !== $('nbCanvas') || mode !== 'select') return;
+          const rect = $('nbCanvas').getBoundingClientRect();
+          addItem('text', { x: Math.max(0, (event.clientX - rect.left) / zoom), y: Math.max(32, (event.clientY - rect.top) / zoom) });
+        });
+        function point(event) {
+          const rect = $('nbCanvas').getBoundingClientRect();
+          return [Math.max(0, (event.clientX - rect.left) / zoom), Math.max(32, (event.clientY - rect.top) / zoom)];
+        }
+        $('nbCanvas').addEventListener('pointerdown', event => {
+          if (event.button !== 0 || !board()) return;
+          if (mode === 'hand') {
+            gesture = { type: 'pan', x: event.clientX, y: event.clientY, left: $('nbViewport').scrollLeft, top: $('nbViewport').scrollTop };
+          } else if (mode === 'pen') {
+            const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg'); svg.classList.add('nb-live-stroke');
+            svg.setAttribute('width', canvasSize().w); svg.setAttribute('height', canvasSize().h);
+            const path = document.createElementNS(svg.namespaceURI, 'polyline'); path.setAttribute('fill', 'none'); path.setAttribute('stroke', ink[color]); path.setAttribute('stroke-width', '3'); path.setAttribute('stroke-linecap', 'round'); path.setAttribute('stroke-linejoin', 'round');
+            svg.append(path); $('nbCanvas').append(svg);
+            gesture = { type: 'draw', points: [point(event)], svg, path };
+            select(null);
+          } else {
+            const handle = event.target.closest('[data-nb-drag], [data-nb-resize]');
+            if (handle && selected()) {
+              remember(); editingId = null;
+              gesture = { type: handle.dataset.nbResize ? 'resize' : 'move', x: event.clientX, y: event.clientY, item: selected(), original: { ...selected() }, el: handle.closest('.nb-object') };
+            } else if (event.target === $('nbCanvas')) select(null);
+            else return;
+          }
+          if (gesture) { event.preventDefault(); $('nbCanvas').setPointerCapture(event.pointerId); }
+        });
+        $('nbCanvas').addEventListener('pointermove', event => {
+          if (!gesture) return;
+          const g = gesture;
+          if (g.type === 'pan') { $('nbViewport').scrollTo(g.left - event.clientX + g.x, g.top - event.clientY + g.y); return; }
+          if (g.type === 'draw') {
+            if (g.points.length < 20000) g.points.push(point(event));
+            g.path.setAttribute('points', g.points.map(p => p.join(',')).join(' ')); return;
+          }
+          const dx = (event.clientX - g.x) / zoom, dy = (event.clientY - g.y) / zoom;
+          if (g.type === 'move') { g.item.x = Math.max(0, Math.min(50000, g.original.x + dx)); g.item.y = Math.max(32, Math.min(50000, g.original.y + dy)); }
+          else { g.item.w = Math.max(60, Math.min(3000, g.original.w + dx)); g.item.h = Math.max(45, Math.min(3000, g.original.h + dy)); }
+          objectStyle(g.el, g.item);
+        });
+        function finishGesture() {
+          if (!gesture) return;
+          const g = gesture; gesture = null;
+          if (g.type === 'draw') {
+            g.svg.remove(); if (g.points.length < 2) return;
+            const xs = g.points.map(p => p[0]), ys = g.points.map(p => p[1]);
+            const x = Math.min(...xs), y = Math.min(...ys), w = Math.max(6, Math.max(...xs) - x), h = Math.max(6, Math.max(...ys) - y);
+            remember();
+            const item = { id: newId(), type: 'drawing', x, y, w, h, color, fontSize, text: '', points: g.points.map(p => [(p[0] - x) / w, (p[1] - y) / h]) };
+            board().items.push(item); renderCanvas(); persist();
+          } else if (g.type !== 'pan') { sizeCanvas(); persist(); }
+        }
+        $('nbCanvas').addEventListener('pointerup', finishGesture);
+        $('nbCanvas').addEventListener('pointercancel', finishGesture);
+        $('nbCanvas').addEventListener('lostpointercapture', finishGesture);
+        $('nbAddImage').addEventListener('click', () => $('nbImageInput').click());
+        $('nbImageInput').addEventListener('change', async event => {
+          const file = event.target.files[0]; event.target.value = ''; if (!file || !board()) return;
+          const targetId = activeId;
+          if (!['image/png', 'image/jpeg', 'image/webp'].includes(file.type) || file.size > 10 * 1024 * 1024) { show('请选择 10 MB 以内的 PNG、JPEG 或 WebP 图片'); return; }
+          try {
+            const bitmap = await createImageBitmap(file);
+            const ratio = Math.min(1, 1400 / Math.max(bitmap.width, bitmap.height));
+            const canvas = document.createElement('canvas'); canvas.width = Math.max(1, Math.round(bitmap.width * ratio)); canvas.height = Math.max(1, Math.round(bitmap.height * ratio));
+            const ctx = canvas.getContext('2d'); ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, canvas.width, canvas.height); ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height); bitmap.close();
+            if (activeId !== targetId) { show('看板已切换，请重新选择图片'); return; }
+            const w = 320, h = Math.max(60, Math.min(700, w * canvas.height / canvas.width));
+            addItem('image', null, { src: canvas.toDataURL('image/jpeg', .82), w, h }); flush();
+          } catch (error) { show('图片无法读取，请尝试其他图片'); }
+        });
+        $('nbViewport').addEventListener('keydown', event => {
+          if (event.target.closest('textarea, input, select')) return;
+          if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'z') { event.preventDefault(); undo(event.shiftKey); return; }
+          if (['Backspace', 'Delete'].includes(event.key) && selected()) { event.preventDefault(); deleteItem(); return; }
+          if (event.key === 'Escape') { setMode('select'); select(null); return; }
+          const direction = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] }[event.key];
+          if (direction && selected()) {
+            event.preventDefault(); remember(); const i = selected(), step = event.shiftKey ? 10 : 1;
+            i.x = Math.max(0, i.x + direction[0] * step); i.y = Math.max(32, i.y + direction[1] * step);
+            renderCanvas(); $('nbViewport').focus(); persist();
+          }
+        });
+        window.addEventListener('pagehide', () => { if (dirty) flush(); });
+        document.addEventListener('click', event => {
+          if (event.target.closest('[data-page="notes"]')) window.scrollTo(0, 0);
+        });
+        window.addEventListener('beforeunload', event => { if (dirty && !flush()) { event.preventDefault(); event.returnValue = ''; } });
+        document.addEventListener('visibilitychange', () => { if (document.hidden && dirty) flush(); });
+
+        // 首页的新建笔记入口也进入看板；新数据与旧笔记备份、灵感模块分别保存。
+        createNote = createBoard;
+        updateDashboardNotePreview = function () {
+          const preview = $('dashboardNotePreview'); if (!preview) return;
+          const latest = [...store.boards].sort((a, b) => b.updatedAt - a.updatedAt)[0];
+          preview.replaceChildren(make('small', '', latest ? '最近编辑的看板' : '自由看板'), make('h3', '', latest?.title || '给想法一张自由的画布。'), make('p', '', latest ? latest.items.map(i => i.text || '').filter(Boolean).join(' · ').slice(0, 90) || '打开笔记，继续整理画布。' : '便签、文字、图片与手绘，都可以自由摆放。'));
+        };
+        renderLibrary(); updateDashboardNotePreview();
+        if (readError) flush();
+        else if (needsMigration) flush();
+      })();
     </script>
   </body>
 </html>
