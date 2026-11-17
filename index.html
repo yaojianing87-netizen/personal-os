@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="theme-color" content="#FDF9EE" />
-    <title>Atelier Hour — Personal OS</title>
+    <title>Diving</title>
     <link rel="icon" type="image/svg+xml" href="./favicon.svg" />
     <link rel="stylesheet" href="./styles.css" />
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -241,6 +241,34 @@
       #focusmode .fm-badge small, #focusmode .fm-badge em { font: inherit; font-size: 10px; color: var(--muted); }
       @media (max-width: 950px) { #focusmode .fm-grid { grid-template-columns: minmax(0, 1fr); } #focusmode .fm-task-card { min-height: 280px; } }
       @media (max-width: 620px) { #focusmode { padding: 0 14px 28px; } #focusmode .fm-card, #focusmode .fm-timer { padding: 17px; } #focusmode .fm-timer { min-height: 350px; } }
+      .feedback-link { margin-top: 4px; }
+      .feedback-mobile-link { display: none; }
+      .feedback-link[aria-current="page"] { background: color-mix(in srgb, var(--primary) 35%, transparent); border-radius: 9px; }
+      .feedback-layout { display: grid; grid-template-columns: minmax(0, .85fr) minmax(0, 1.3fr); gap: 20px; align-items: start; }
+      .feedback-intro h2 { margin: 4px 0 15px; font: 500 24px/1.45 Georgia, serif; }
+      .feedback-intro > p { font-size: 13px; line-height: 1.9; color: var(--muted); margin: 0 0 20px; }
+      .feedback-contacts { display: grid; gap: 12px; }
+      .feedback-contact { padding: 14px; border: 1px solid color-mix(in srgb, var(--ink) 13%, transparent); border-radius: 12px; background: color-mix(in srgb, var(--paper) 55%, var(--card)); }
+      .feedback-contact small { display: block; color: var(--muted); font-size: 10px; margin-bottom: 7px; }
+      .feedback-email { display: block; color: var(--ink); text-decoration: none; font-size: 13px; overflow-wrap: anywhere; margin-bottom: 10px; }
+      .feedback-copy-email { border: 1px solid color-mix(in srgb, var(--ink) 20%, transparent); background: var(--card); color: var(--ink); border-radius: 7px; font: inherit; font-size: 11px; padding: 6px 10px; cursor: pointer; }
+      .feedback-form { display: grid; gap: 10px; }
+      .feedback-form h2 { font-size: 14px; margin: 0 0 8px; }
+      .feedback-form label { font-size: 12px; font-weight: 600; }
+      .feedback-form label small { font-size: 11px; color: var(--muted); font-weight: 400; }
+      .feedback-form input, .feedback-form select, .feedback-form textarea { width: 100%; border: 1px solid color-mix(in srgb, var(--ink) 20%, transparent); border-radius: 9px; padding: 11px 12px; font: inherit; font-size: 13px; color: var(--ink); background: color-mix(in srgb, var(--paper) 40%, var(--card)); }
+      .feedback-form textarea { min-height: 190px; resize: vertical; line-height: 1.8; }
+      .feedback-form input:focus, .feedback-form select:focus, .feedback-form textarea:focus { outline: 2px solid var(--primary); outline-offset: 2px; }
+      .feedback-form-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 5px; }
+      .feedback-form-fields > div { display: grid; gap: 8px; }
+      .feedback-message-meta { display: flex; justify-content: space-between; gap: 10px; font-size: 10px; line-height: 1.6; color: var(--muted); }
+      .feedback-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 8px; align-items: center; }
+      .feedback-send { display: inline-block; text-decoration: none; }
+      .feedback-status { margin: 2px 0 0; min-height: 20px; color: var(--muted); font-size: 12px; line-height: 1.8; }
+      .feedback-status[data-error="true"] { color: #ad3f3f; }
+      .feedback-send-note { font-size: 11px; color: var(--muted); line-height: 1.8; margin: 2px 0 0; }
+      @media (max-width: 950px) { .feedback-layout { grid-template-columns: 1fr; } .feedback-contacts { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+      @media (max-width: 620px) { .feedback-contacts, .feedback-form-fields { grid-template-columns: 1fr; } .feedback-form input, .feedback-form select, .feedback-form textarea { font-size: 16px; } .feedback-mobile-link { display: block; position: fixed; bottom: 14px; right: 14px; z-index: 20; border: 1px solid color-mix(in srgb, var(--ink) 20%, transparent); border-radius: 10px; padding: 10px 14px; background: var(--card); color: var(--ink); font: inherit; font-size: 12px; box-shadow: 0 3px 12px color-mix(in srgb, var(--ink) 8%, transparent); cursor: pointer; } }
     </style>
   </head>
   <body>
@@ -260,20 +288,19 @@
         <div class="sidebar-bottom">
           <div class="tiny-quote" id="sideQuote" contenteditable="true" spellcheck="false" role="textbox" aria-multiline="true" aria-label="左下角的励志短语，可直接编辑">“Make room for what matters.”</div>
           <button class="appearance-link" data-page="appearance"><span>✦</span> 外观中心</button>
-          <button class="profile"><span class="avatar">Y</span><span>我的工作台<small>Personal space</small></span><span>⌄</span></button>
+          <button class="appearance-link feedback-link" type="button" data-page="feedback"><span aria-hidden="true">✉</span> 反馈</button>
         </div>
       </aside>
       <section class="content">
         <div class="page dashboard-page" id="dashboard">
           <header class="topbar">
             <div><h1 class="sr-only">今日工作台</h1><p class="eyebrow" id="dateLine">WEDNESDAY, 11 NOVEMBER</p><p class="welcome-line">Hi <span>✦</span></p></div>
-            <div class="top-actions"><button class="round-btn" id="searchButton" type="button" aria-label="搜索（暂未启用）" title="搜索功能将在后续阶段提供" disabled>⌕</button><button class="round-btn" id="notificationsButton" type="button" aria-label="通知（暂未启用）" title="通知功能将在后续阶段提供" disabled>◌</button><button class="primary-btn" id="addTask" data-add-task type="button">＋ 新建任务</button></div>
           </header>
-          <section class="mood-strip"><div><span class="sun">☼</span><b>今天，慢一点也没关系。</b><p>给自己留下一段专注而柔软的时间。</p></div><button id="editDashboard">编辑版面 <span>↗</span></button></section>
+          <section class="mood-strip"><div><span class="sun">☼</span><b>今天，慢一点也没关系。</b><p>给自己留下一段专注而柔软的时间。</p></div></section>
           <div class="dashboard-grid" id="dashboardGrid">
             <article class="card focus-card" data-module="focus">
               <div class="card-heading"><span><i class="ink-dot"></i> 今日重点</span></div>
-              <div class="focus-main"><div class="focus-number">01</div><div><h2 id="focusTitle" contenteditable="true" spellcheck="false" aria-label="今日重点标题，可直接编辑">完善 Personal OS 的视觉语言</h2><p id="focusDesc" contenteditable="true" spellcheck="false" aria-label="今日重点描述，可直接编辑">让每一次打开，都成为一段安静的开始。</p><div class="progress"><span id="focusProgressBar" style="width:72%"></span></div><small id="focusProgressLabel">72% 完成</small><input type="range" class="focus-progress" id="focusProgress" min="0" max="100" step="1" value="72" aria-label="今日重点完成度" /></div></div>
+              <div class="focus-main"><div class="focus-number">01</div><div><h2 id="focusTitle" contenteditable="true" spellcheck="false" aria-label="今日重点标题，可直接编辑">完善 Diving 的视觉语言</h2><p id="focusDesc" contenteditable="true" spellcheck="false" aria-label="今日重点描述，可直接编辑">让每一次打开，都成为一段安静的开始。</p><div class="progress"><span id="focusProgressBar" style="width:72%"></span></div><small id="focusProgressLabel">72% 完成</small><input type="range" class="focus-progress" id="focusProgress" min="0" max="100" step="1" value="72" aria-label="今日重点完成度" /></div></div>
             </article>
             <article class="card agenda-card" data-module="agenda">
               <div class="card-heading"><span><i class="ink-dot"></i> 接下来</span><button class="text-button" data-page="calendar" type="button">查看日历 →</button></div>
@@ -424,6 +451,32 @@
             </article>
           </div>
         </div>
+        <div class="page simple-page" id="feedback">
+          <header class="page-intro"><div><p class="eyebrow">YOUR VOICE MATTERS</p><h1 class="compact-page-title">Feedback</h1></div></header>
+          <div class="feedback-layout">
+            <section class="card feedback-intro" aria-label="感谢与联系邮箱">
+              <h2>谢谢你，把体验告诉我们。</h2>
+              <p>感谢你使用 Diving。希望这个工作台，能为你的日常留出更多从容与专注。<br><br>哪里不够顺手，或是你期待的新功能，都欢迎告诉我们。每一条认真写下的建议，都是让它变得更好的方向。</p>
+              <div class="feedback-contacts">
+                <div class="feedback-contact"><small>联系邮箱</small><a class="feedback-email" href="mailto:yaojianing87@gmail.com">yaojianing87@gmail.com</a><button class="feedback-copy-email" type="button" data-feedback-copy-email="primary" aria-label="复制邮箱 yaojianing87@gmail.com">复制邮箱</button></div>
+                <div class="feedback-contact"><small>备用邮箱</small><a class="feedback-email" href="mailto:yjn0611@qq.com">yjn0611@qq.com</a><button class="feedback-copy-email" type="button" data-feedback-copy-email="secondary" aria-label="复制邮箱 yjn0611@qq.com">复制邮箱</button></div>
+                <div class="feedback-contact"><small>其他联系邮箱</small><a class="feedback-email" href="mailto:a2930316463@163.com">a2930316463@163.com</a><button class="feedback-copy-email" type="button" data-feedback-copy-email="tertiary" aria-label="复制邮箱 a2930316463@163.com">复制邮箱</button></div>
+              </div>
+            </section>
+            <section class="card" aria-label="填写反馈">
+              <form class="feedback-form" id="feedbackForm" autocomplete="off" novalidate>
+                <h2>愿意和我们分享吗？</h2>
+                <div class="feedback-form-fields"><div><label for="feedbackType">反馈类型</label><select id="feedbackType"><option value="使用建议">使用建议</option><option value="问题反馈">问题反馈</option><option value="其他">其他</option></select></div><div><label for="feedbackReply">回复邮箱 <small>（选填）</small></label><input id="feedbackReply" type="email" maxlength="254" autocomplete="off" placeholder="方便我们与你联系" /></div></div>
+                <label for="feedbackMessage">你的评语与建议</label>
+                <textarea id="feedbackMessage" rows="8" maxlength="2000" required autocomplete="off" placeholder="告诉我们你的体验，以及希望改进的地方…"></textarea>
+                <div class="feedback-message-meta"><span>切换页面可继续填写；刷新或关闭后清空，不保存到浏览器。</span><span id="feedbackCount">0 / 2000</span></div>
+                <div class="feedback-actions"><a class="primary-btn feedback-send" id="feedbackMailLink" href="mailto:yaojianing87@gmail.com?cc=yjn0611%40qq.com%2Ca2930316463%40163.com">打开邮件发送</a><button class="outline-btn" id="feedbackCopyText" type="button">复制反馈内容</button></div>
+                <p class="feedback-send-note">将发送至 Gmail 邮箱，并抄送 QQ、163 邮箱。点击后会打开默认邮件应用，请在邮件应用中确认并发送。若未配置邮件应用，可复制邮箱和反馈内容后手动发送。</p>
+                <p class="feedback-status" id="feedbackStatus" role="status"></p>
+              </form>
+            </section>
+          </div>
+        </div>
         <div class="page travel-page" id="travel">
           <header class="travel-head">
             <div>
@@ -562,6 +615,7 @@
         <div class="tk-info-grid" id="taskStatsBody"></div>
       </div>
     </dialog>
+    <button class="feedback-mobile-link" id="feedbackMobileEntry" type="button" data-page="feedback">反馈</button>
     <div class="toast" id="toast"></div>
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="./app.js"></script>
@@ -1367,6 +1421,95 @@
         });
         syncIntention(intention);
         fmRenderTask();
+      })();
+    </script>
+    <script>
+      (() => {
+        const $ = id => document.getElementById(id);
+        const emails = { primary: 'yaojianing87@gmail.com', secondary: 'yjn0611@qq.com', tertiary: 'a2930316463@163.com' };
+        const types = ['使用建议', '问题反馈', '其他'];
+        const form = $('feedbackForm');
+        function status(message, error = false) {
+          $('feedbackStatus').textContent = message;
+          $('feedbackStatus').dataset.error = String(error);
+        }
+        function composeFeedback() {
+          const type = types.includes($('feedbackType').value) ? $('feedbackType').value : '其他';
+          const message = $('feedbackMessage').value.trim().replace(/\r\n|\r|\n/g, '\r\n');
+          const reply = $('feedbackReply').value.trim();
+          const subject = 'Diving · ' + type;
+          const body = '反馈类型：' + type + '\r\n\r\n' + message + (reply ? '\r\n\r\n回复邮箱：' + reply : '');
+          const url = 'mailto:' + emails.primary + '?cc=' + encodeURIComponent([emails.secondary, emails.tertiary].join(',')) + '&subject=' + encodeURIComponent(subject) + '&body=' + encodeURIComponent(body);
+          return { subject, body, url };
+        }
+        function updateDraft() {
+          $('feedbackMessage').setCustomValidity('');
+          $('feedbackCount').textContent = $('feedbackMessage').value.length + ' / 2000';
+          $('feedbackMailLink').href = composeFeedback().url;
+        }
+        function validate() {
+          $('feedbackMessage').setCustomValidity($('feedbackMessage').value.trim() ? '' : '请先写下你的评语或建议。');
+          return form.reportValidity();
+        }
+        async function copyText(value) {
+          try {
+            if (!navigator.clipboard?.writeText) throw new Error('Clipboard API unavailable');
+            await navigator.clipboard.writeText(value);
+            return true;
+          } catch {
+            const focused = document.activeElement;
+            const buffer = document.createElement('textarea');
+            buffer.value = value; buffer.readOnly = true;
+            Object.assign(buffer.style, { position: 'fixed', left: '-9999px', top: '0' });
+            document.body.append(buffer); buffer.select();
+            let copied = false;
+            try { copied = document.execCommand('copy'); } catch { /* 提供手动复制提示 */ }
+            buffer.remove(); focused?.focus();
+            return copied;
+          }
+        }
+        document.querySelectorAll('[data-feedback-copy-email]').forEach(button => button.addEventListener('click', async () => {
+          const email = emails[button.dataset.feedbackCopyEmail];
+          if (!email) return;
+          const copied = await copyText(email);
+          status(copied ? '已复制邮箱：' + email : '未能复制，请手动选择上方邮箱地址。', !copied);
+          if (copied) { button.textContent = '已复制 ✓'; setTimeout(() => { button.textContent = '复制邮箱'; }, 1800); }
+        }));
+        $('feedbackCopyText').addEventListener('click', async () => {
+          if (!validate()) return;
+          const draft = composeFeedback();
+          const copied = await copyText(draft.subject + '\r\n\r\n' + draft.body);
+          status(copied ? '反馈内容已复制，谢谢你的用心。请粘贴到邮件中并发送给我们。' : '未能复制，请手动选择并复制输入框中的内容。', !copied);
+        });
+        $('feedbackMailLink').addEventListener('click', event => {
+          if (!validate()) { event.preventDefault(); return; }
+          updateDraft();
+          status('已请求打开邮件应用。请确认收件人和内容后点击发送，谢谢你的反馈。');
+        });
+        form.addEventListener('submit', event => {
+          event.preventDefault();
+          if (validate()) $('feedbackMailLink').click();
+        });
+        form.addEventListener('input', () => { updateDraft(); status(''); });
+        form.addEventListener('change', updateDraft);
+        function clearFeedback() {
+          form.reset(); status(''); updateDraft();
+          document.querySelectorAll('[data-feedback-copy-email]').forEach(button => { button.textContent = '复制邮箱'; });
+        }
+        document.addEventListener('click', event => {
+          const nav = event.target.closest('[data-page]');
+          if (!nav) return;
+          const active = nav.dataset.page === 'feedback';
+          const entry = document.querySelector('.feedback-link');
+          $('feedbackMobileEntry').dataset.page = active ? 'dashboard' : 'feedback';
+          $('feedbackMobileEntry').textContent = active ? '返回首页' : '反馈';
+          if (active) { entry.setAttribute('aria-current', 'page'); window.scrollTo(0, 0); }
+          else { entry.removeAttribute('aria-current'); }
+        });
+        // 反馈只在当前页面内存中存在，不写入 localStorage、sessionStorage 或其他数据库。
+        window.addEventListener('pagehide', clearFeedback);
+        window.addEventListener('pageshow', clearFeedback);
+        clearFeedback();
       })();
     </script>
   </body>

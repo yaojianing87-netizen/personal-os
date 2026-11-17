@@ -1,6 +1,6 @@
 # Instructions for the coding agent
 
-## Personal OS: ongoing development workflow
+## Diving: ongoing development workflow
 
 - After completing each requested code change, check for errors and run the validation appropriate to the change, then automatically create a local Git commit. Do not ask for confirmation to commit.
 - Commit only changes belonging to the current task. Preserve unrelated user changes. If validation fails, fix the issue before committing; report any blocker instead of claiming completion.
