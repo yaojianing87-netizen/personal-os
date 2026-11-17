@@ -54,5 +54,4 @@ Feedback 不将评语或回复邮箱写入 localStorage、sessionStorage 或数�
 
 ## 当前限制
 
-- 目标模块仍处于原型阶段。
 - 壁纸上传只在当前浏览器会话预览，不会持久保存。
